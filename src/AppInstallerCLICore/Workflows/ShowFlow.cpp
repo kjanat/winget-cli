@@ -5,6 +5,7 @@
 #include "ShowFlow.h"
 #include <winget/ManifestComparator.h>
 #include "TableOutput.h"
+#include <json/json.h>
 
 using namespace AppInstaller::Repository;
 using namespace AppInstaller::CLI;
@@ -12,6 +13,16 @@ using namespace AppInstaller::Utility;
 using namespace AppInstaller::Utility::literals;
 
 namespace {
+
+    bool IsJsonOutputFormat(const Execution::Context& context)
+    {
+        if (context.Args.Contains(Execution::Args::Type::OutputFormat))
+        {
+            std::string_view format = context.Args.GetArg(Execution::Args::Type::OutputFormat);
+            return Utility::CaseInsensitiveEquals(format, "json");
+        }
+        return false;
+    }
 
     template <typename String>
     void ShowSingleLineField(Execution::OutputStream outputStream, AppInstaller::StringResource::StringId label, const String& value, bool indent = false)
@@ -118,7 +129,97 @@ namespace AppInstaller::CLI::Workflow
 
     void ShowManifestInfo(Execution::Context& context)
     {
-        context << ShowPackageInfo << ShowInstallerInfo;
+        if (IsJsonOutputFormat(context))
+        {
+            const auto& manifest = context.Get<Execution::Data::Manifest>();
+            const auto* installer = context.Has<Execution::Data::Installer>() ? &context.Get<Execution::Data::Installer>() : nullptr;
+
+            Json::Value root{ Json::ValueType::objectValue };
+
+            // Package information
+            root["PackageName"] = manifest.CurrentLocalization.Get<Manifest::Localization::PackageName>();
+            root["PackageId"] = manifest.Id;
+            root["Version"] = manifest.Version;
+            root["Publisher"] = manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>();
+
+            std::string description = manifest.CurrentLocalization.Get<Manifest::Localization::Description>();
+            if (!description.empty())
+            {
+                root["Description"] = description;
+            }
+            else
+            {
+                std::string shortDescription = manifest.CurrentLocalization.Get<Manifest::Localization::ShortDescription>();
+                if (!shortDescription.empty())
+                {
+                    root["ShortDescription"] = shortDescription;
+                }
+            }
+
+            std::string author = manifest.CurrentLocalization.Get<Manifest::Localization::Author>();
+            if (!author.empty())
+            {
+                root["Author"] = author;
+            }
+
+            std::string license = manifest.CurrentLocalization.Get<Manifest::Localization::License>();
+            if (!license.empty())
+            {
+                root["License"] = license;
+            }
+
+            std::string licenseUrl = manifest.CurrentLocalization.Get<Manifest::Localization::LicenseUrl>();
+            if (!licenseUrl.empty())
+            {
+                root["LicenseUrl"] = licenseUrl;
+            }
+
+            std::string packageUrl = manifest.CurrentLocalization.Get<Manifest::Localization::PackageUrl>();
+            if (!packageUrl.empty())
+            {
+                root["PackageUrl"] = packageUrl;
+            }
+
+            std::string publisherUrl = manifest.CurrentLocalization.Get<Manifest::Localization::PublisherUrl>();
+            if (!publisherUrl.empty())
+            {
+                root["PublisherUrl"] = publisherUrl;
+            }
+
+            std::string moniker = manifest.Moniker;
+            if (!moniker.empty())
+            {
+                root["Moniker"] = moniker;
+            }
+
+            // Installer information
+            if (installer && *installer)
+            {
+                Json::Value installerInfo{ Json::ValueType::objectValue };
+
+                installerInfo["InstallerType"] = Manifest::InstallerTypeToString((*installer)->EffectiveInstallerType());
+
+                std::string installerUrl = (*installer)->Url;
+                if (!installerUrl.empty())
+                {
+                    installerInfo["InstallerUrl"] = installerUrl;
+                }
+
+                std::string installerSha256 = (*installer)->Sha256.empty() ? "" : Utility::SHA256::ConvertToString((*installer)->Sha256);
+                if (!installerSha256.empty())
+                {
+                    installerInfo["InstallerSha256"] = installerSha256;
+                }
+
+                root["Installer"] = installerInfo;
+            }
+
+            context.Reporter.Info() << root << std::endl;
+        }
+        else
+        {
+            context << ShowPackageInfo << ShowInstallerInfo;
+        }
     }
 
     void ShowPackageInfo(Execution::Context& context)

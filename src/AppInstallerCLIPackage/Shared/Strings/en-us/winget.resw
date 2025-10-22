@@ -822,6 +822,9 @@ They can be configured through the settings file 'winget settings'.</value>
   <data name="OutputFileArgumentDescription" xml:space="preserve">
     <value>File where the result is to be written</value>
   </data>
+  <data name="OutputFormatArgumentDescription" xml:space="preserve">
+    <value>Output format to use (json|table); default is table</value>
+  </data>
   <data name="ImportFileArgumentDescription" xml:space="preserve">
     <value>File describing the packages to install</value>
   </data>

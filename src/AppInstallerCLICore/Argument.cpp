@@ -293,6 +293,8 @@ namespace AppInstaller::CLI
             return { type, "force"_liv, ArgTypeCategory::CopyFlagToSubContext };
         case Execution::Args::Type::OutputFile:
             return { type, "output"_liv, 'o' };
+        case Execution::Args::Type::OutputFormat:
+            return { type, "format"_liv };
         case Execution::Args::Type::Correlation:
             return { type, "correlation"_liv };
 
@@ -478,6 +480,8 @@ namespace AppInstaller::CLI
             return Argument{ type, Resource::String::FontDetailsArgumentDescription, ArgumentType::Flag, false };
         case Args::Type::Correlation:
             return Argument{ type, Resource::String::CorrelationArgumentDescription, ArgumentType::Standard, Argument::Visibility::Hidden };
+        case Args::Type::OutputFormat:
+            return Argument{ type, Resource::String::OutputFormatArgumentDescription, ArgumentType::Standard, Argument::Visibility::Help };
         default:
             THROW_HR(E_UNEXPECTED);
         }

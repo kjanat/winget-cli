@@ -50,6 +50,7 @@ Search strings can be filtered with the following options.
 | **--header** | Optional Windows-Package-Manager REST source HTTP header. |
 | **--accept-source-agreements** | Accept all source agreements during source operations. |
 | **--versions** | Show available versions of the package. |
+| **--format** | Specifies the output format. Supported values: json, table (default: table). |
 | **-?, --help** | Gets additional help on this command. |
 | **--wait** | Prompts the user to press any key before exiting. |
 | **--logs, --open-logs** | Open the default logs location. |
