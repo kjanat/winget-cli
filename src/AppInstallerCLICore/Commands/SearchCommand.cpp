@@ -29,6 +29,7 @@ namespace AppInstaller::CLI
             Argument::ForType(Execution::Args::Type::AuthenticationAccount),
             Argument::ForType(Execution::Args::Type::AcceptSourceAgreements),
             Argument::ForType(Execution::Args::Type::ListVersions),
+            Argument{ Execution::Args::Type::OutputFile, Resource::String::OutputFileArgumentDescription, ArgumentType::Standard, Argument::Visibility::Help },
         };
     }
 

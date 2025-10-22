@@ -15,6 +15,8 @@
 #include <AppInstallerSHA256.h>
 #include <winget/Runtime.h>
 #include <winget/PackageVersionSelection.h>
+#include <json/json.h>
+#include <filesystem>
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 
@@ -777,34 +779,83 @@ namespace AppInstaller::CLI::Workflow
     {
         auto& searchResult = context.Get<Execution::Data::SearchResult>();
 
-        bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
-        Execution::TableOutput<5> table(context.Reporter,
+        // Check if JSON output is requested
+        if (context.Args.Contains(Execution::Args::Type::OutputFile))
+        {
+            Json::Value root(Json::objectValue);
+            Json::Value packagesArray(Json::arrayValue);
+
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
             {
-                Resource::String::SearchName,
-                Resource::String::SearchId,
-                Resource::String::SearchVersion,
-                Resource::String::SearchMatch,
-                Resource::String::SearchSource
-            });
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                
+                Json::Value package(Json::objectValue);
+                package["Name"] = static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Name));
+                package["Id"] = static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Id));
+                package["Version"] = static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Version));
+                
+                std::string matchCriteria = GetMatchCriteriaDescriptor(searchResult.Matches[i]);
+                if (!matchCriteria.empty())
+                {
+                    package["Match"] = matchCriteria;
+                }
+                
+                if (sourceIsComposite)
+                {
+                    package["Source"] = static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName));
+                }
 
-        for (size_t i = 0; i < searchResult.Matches.size(); ++i)
-        {
-            auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                packagesArray.append(package);
+            }
 
-            table.OutputLine({
-                latestVersion->GetProperty(PackageVersionProperty::Name),
-                latestVersion->GetProperty(PackageVersionProperty::Id),
-                latestVersion->GetProperty(PackageVersionProperty::Version),
-                GetMatchCriteriaDescriptor(searchResult.Matches[i]),
-                sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
-                });
+            root["Packages"] = packagesArray;
+            
+            if (searchResult.Truncated)
+            {
+                root["Truncated"] = true;
+            }
+
+            std::filesystem::path outputFilePath{ context.Args.GetArg(Execution::Args::Type::OutputFile) };
+            std::ofstream outputFileStream{ outputFilePath };
+            Json::StreamWriterBuilder writerBuilder;
+            writerBuilder["indentation"] = "  ";
+            std::unique_ptr<Json::StreamWriter> writer(writerBuilder.newStreamWriter());
+            writer->write(root, &outputFileStream);
         }
-
-        table.Complete();
-
-        if (searchResult.Truncated)
+        else
         {
-            context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+            // Original table output
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+            Execution::TableOutput<5> table(context.Reporter,
+                {
+                    Resource::String::SearchName,
+                    Resource::String::SearchId,
+                    Resource::String::SearchVersion,
+                    Resource::String::SearchMatch,
+                    Resource::String::SearchSource
+                });
+
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
+            {
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+
+                table.OutputLine({
+                    latestVersion->GetProperty(PackageVersionProperty::Name),
+                    latestVersion->GetProperty(PackageVersionProperty::Id),
+                    latestVersion->GetProperty(PackageVersionProperty::Version),
+                    GetMatchCriteriaDescriptor(searchResult.Matches[i]),
+                    sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
+                    });
+            }
+
+            table.Complete();
+
+            if (searchResult.Truncated)
+            {
+                context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+            }
         }
     }
 
@@ -1061,49 +1112,125 @@ namespace AppInstaller::CLI::Workflow
             }
         }
 
-        OutputInstalledPackagesTable(context, lines);
+        // Check if JSON output is requested
+        if (context.Args.Contains(Execution::Args::Type::OutputFile))
+        {
+            Json::Value root(Json::objectValue);
+            Json::Value packagesArray(Json::arrayValue);
 
-        if (lines.empty())
-        {
-            context.Reporter.Info() << Resource::String::NoInstalledPackageFound << std::endl;
-        }
-        else
-        {
+            auto addPackagesToArray = [](Json::Value& arr, const std::vector<InstalledPackagesTableLine>& pkgLines) {
+                for (const auto& line : pkgLines)
+                {
+                    Json::Value package(Json::objectValue);
+                    package["Name"] = static_cast<std::string>(line.Name);
+                    package["Id"] = static_cast<std::string>(line.Id);
+                    package["InstalledVersion"] = static_cast<std::string>(line.InstalledVersion);
+                    
+                    if (!line.AvailableVersion.empty())
+                    {
+                        package["AvailableVersion"] = static_cast<std::string>(line.AvailableVersion);
+                    }
+                    
+                    if (!line.Source.empty())
+                    {
+                        package["Source"] = static_cast<std::string>(line.Source);
+                    }
+
+                    arr.append(package);
+                }
+            };
+
+            addPackagesToArray(packagesArray, lines);
+            root["Packages"] = packagesArray;
+
+            if (!linesForExplicitUpgrade.empty())
+            {
+                Json::Value explicitUpgradeArray(Json::arrayValue);
+                addPackagesToArray(explicitUpgradeArray, linesForExplicitUpgrade);
+                root["AvailableForPinned"] = explicitUpgradeArray;
+            }
+
+            if (!linesForPins.empty())
+            {
+                Json::Value pinnedArray(Json::arrayValue);
+                addPackagesToArray(pinnedArray, linesForPins);
+                root["BlockedByPin"] = pinnedArray;
+            }
+
             if (searchResult.Truncated)
             {
-                context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+                root["Truncated"] = true;
             }
 
             if (m_onlyShowUpgrades)
             {
-                context.Reporter.Info() << Resource::String::AvailableUpgrades(availableUpgradesCount) << std::endl;
-            }
-        }
+                root["AvailableUpgradesCount"] = availableUpgradesCount;
 
-        if (!linesForExplicitUpgrade.empty())
-        {
-            context.Reporter.Info() << std::endl << Resource::String::UpgradeAvailableForPinned << std::endl;
-            OutputInstalledPackagesTable(context, linesForExplicitUpgrade);
-        }
+                if (packagesWithUnknownVersionSkipped > 0)
+                {
+                    root["UnknownVersionSkipped"] = packagesWithUnknownVersionSkipped;
+                }
 
-        if (!linesForPins.empty())
-        {
-            context.Reporter.Info() << std::endl << Resource::String::UpgradeBlockedByPinCount(linesForPins.size()) << std::endl;
-            OutputInstalledPackagesTable(context, linesForPins);
-        }
-
-        if (m_onlyShowUpgrades)
-        {
-            if (packagesWithUnknownVersionSkipped > 0)
-            {
-                AICLI_LOG(CLI, Info, << packagesWithUnknownVersionSkipped << " package(s) skipped due to unknown installed version");
-                context.Reporter.Info() << Resource::String::UpgradeUnknownVersionCount(packagesWithUnknownVersionSkipped) << std::endl;
+                if (packagesWithUserPinsSkipped > 0)
+                {
+                    root["UserPinsSkipped"] = packagesWithUserPinsSkipped;
+                }
             }
 
-            if (packagesWithUserPinsSkipped > 0)
+            std::filesystem::path outputFilePath{ context.Args.GetArg(Execution::Args::Type::OutputFile) };
+            std::ofstream outputFileStream{ outputFilePath };
+            Json::StreamWriterBuilder writerBuilder;
+            writerBuilder["indentation"] = "  ";
+            std::unique_ptr<Json::StreamWriter> writer(writerBuilder.newStreamWriter());
+            writer->write(root, &outputFileStream);
+        }
+        else
+        {
+            // Original table output
+            OutputInstalledPackagesTable(context, lines);
+
+            if (lines.empty())
             {
-                AICLI_LOG(CLI, Info, << packagesWithUserPinsSkipped << " package(s) skipped due to user pins");
-                context.Reporter.Info() << Resource::String::UpgradePinnedByUserCount(packagesWithUserPinsSkipped) << std::endl;
+                context.Reporter.Info() << Resource::String::NoInstalledPackageFound << std::endl;
+            }
+            else
+            {
+                if (searchResult.Truncated)
+                {
+                    context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+                }
+
+                if (m_onlyShowUpgrades)
+                {
+                    context.Reporter.Info() << Resource::String::AvailableUpgrades(availableUpgradesCount) << std::endl;
+                }
+            }
+
+            if (!linesForExplicitUpgrade.empty())
+            {
+                context.Reporter.Info() << std::endl << Resource::String::UpgradeAvailableForPinned << std::endl;
+                OutputInstalledPackagesTable(context, linesForExplicitUpgrade);
+            }
+
+            if (!linesForPins.empty())
+            {
+                context.Reporter.Info() << std::endl << Resource::String::UpgradeBlockedByPinCount(linesForPins.size()) << std::endl;
+                OutputInstalledPackagesTable(context, linesForPins);
+            }
+
+            if (m_onlyShowUpgrades)
+            {
+                if (packagesWithUnknownVersionSkipped > 0)
+                {
+                    AICLI_LOG(CLI, Info, << packagesWithUnknownVersionSkipped << " package(s) skipped due to unknown installed version");
+                    context.Reporter.Info() << Resource::String::UpgradeUnknownVersionCount(packagesWithUnknownVersionSkipped) << std::endl;
+                }
+
+                if (packagesWithUserPinsSkipped > 0)
+                {
+                    AICLI_LOG(CLI, Info, << packagesWithUserPinsSkipped << " package(s) skipped due to user pins");
+                    context.Reporter.Info() << Resource::String::UpgradePinnedByUserCount(packagesWithUserPinsSkipped) << std::endl;
+                }
             }
         }
     }
