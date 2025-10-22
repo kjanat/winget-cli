@@ -15,6 +15,7 @@
 #include <AppInstallerSHA256.h>
 #include <winget/Runtime.h>
 #include <winget/PackageVersionSelection.h>
+#include <json/json.h>
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 
@@ -27,6 +28,16 @@ using namespace winrt::Windows::Foundation;
 
 namespace AppInstaller::CLI::Workflow
 {
+    bool IsJsonOutputFormat(const Execution::Context& context)
+    {
+        if (context.Args.Contains(Execution::Args::Type::OutputFormat))
+        {
+            std::string_view format = context.Args.GetArg(Execution::Args::Type::OutputFormat);
+            return Utility::CaseInsensitiveEquals(format, "json");
+        }
+        return false;
+    }
+
     namespace
     {
         std::string GetMatchCriteriaDescriptor(const ResultMatch& match)
@@ -289,27 +300,56 @@ namespace AppInstaller::CLI::Workflow
 
         void OutputInstalledPackagesTable(Execution::Context& context, const std::vector<InstalledPackagesTableLine>& lines)
         {
-            Execution::TableOutput<5> table(context.Reporter,
-                {
-                    Resource::String::SearchName,
-                    Resource::String::SearchId,
-                    Resource::String::SearchVersion,
-                    Resource::String::AvailableHeader,
-                    Resource::String::SearchSource
-                });
-
-            for (const auto& line : lines)
+            if (IsJsonOutputFormat(context))
             {
-                table.OutputLine({
-                    line.Name,
-                    line.Id,
-                    line.InstalledVersion,
-                    line.AvailableVersion,
-                    line.Source
-                    });
-            }
+                Json::Value packages{ Json::ValueType::arrayValue };
 
-            table.Complete();
+                for (const auto& line : lines)
+                {
+                    Json::Value package{ Json::ValueType::objectValue };
+                    package["PackageName"] = line.Name.get();
+                    package["PackageId"] = line.Id.get();
+                    package["InstalledVersion"] = line.InstalledVersion.get();
+
+                    if (!line.AvailableVersion.get().empty())
+                    {
+                        package["AvailableVersion"] = line.AvailableVersion.get();
+                    }
+
+                    if (!line.Source.get().empty())
+                    {
+                        package["Source"] = line.Source.get();
+                    }
+
+                    packages.append(package);
+                }
+
+                context.Reporter.Info() << packages << std::endl;
+            }
+            else
+            {
+                Execution::TableOutput<5> table(context.Reporter,
+                    {
+                        Resource::String::SearchName,
+                        Resource::String::SearchId,
+                        Resource::String::SearchVersion,
+                        Resource::String::AvailableHeader,
+                        Resource::String::SearchSource
+                    });
+
+                for (const auto& line : lines)
+                {
+                    table.OutputLine({
+                        line.Name,
+                        line.Id,
+                        line.InstalledVersion,
+                        line.AvailableVersion,
+                        line.Source
+                        });
+                }
+
+                table.Complete();
+            }
         }
     }
 
@@ -777,34 +817,72 @@ namespace AppInstaller::CLI::Workflow
     {
         auto& searchResult = context.Get<Execution::Data::SearchResult>();
 
-        bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
-        Execution::TableOutput<5> table(context.Reporter,
+        if (IsJsonOutputFormat(context))
+        {
+            Json::Value root{ Json::ValueType::objectValue };
+            Json::Value packages{ Json::ValueType::arrayValue };
+
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+
+            for (const auto& match : searchResult.Matches)
             {
-                Resource::String::SearchName,
-                Resource::String::SearchId,
-                Resource::String::SearchVersion,
-                Resource::String::SearchMatch,
-                Resource::String::SearchSource
-            });
+                auto latestVersion = GetAllAvailableVersions(match.Package)->GetLatestVersion();
 
-        for (size_t i = 0; i < searchResult.Matches.size(); ++i)
-        {
-            auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                Json::Value package{ Json::ValueType::objectValue };
+                package["PackageName"] = static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Name));
+                package["PackageId"] = static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Id));
+                package["Version"] = static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Version));
 
-            table.OutputLine({
-                latestVersion->GetProperty(PackageVersionProperty::Name),
-                latestVersion->GetProperty(PackageVersionProperty::Id),
-                latestVersion->GetProperty(PackageVersionProperty::Version),
-                GetMatchCriteriaDescriptor(searchResult.Matches[i]),
-                sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
-                });
+                std::string matchField = GetMatchCriteriaDescriptor(match);
+                if (!matchField.empty())
+                {
+                    package["Match"] = matchField;
+                }
+
+                if (sourceIsComposite)
+                {
+                    package["Source"] = static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName));
+                }
+
+                packages.append(package);
+            }
+
+            root["Packages"] = packages;
+            root["Truncated"] = searchResult.Truncated;
+
+            context.Reporter.Info() << root << std::endl;
         }
-
-        table.Complete();
-
-        if (searchResult.Truncated)
+        else
         {
-            context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+            Execution::TableOutput<5> table(context.Reporter,
+                {
+                    Resource::String::SearchName,
+                    Resource::String::SearchId,
+                    Resource::String::SearchVersion,
+                    Resource::String::SearchMatch,
+                    Resource::String::SearchSource
+                });
+
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
+            {
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+
+                table.OutputLine({
+                    latestVersion->GetProperty(PackageVersionProperty::Name),
+                    latestVersion->GetProperty(PackageVersionProperty::Id),
+                    latestVersion->GetProperty(PackageVersionProperty::Version),
+                    GetMatchCriteriaDescriptor(searchResult.Matches[i]),
+                    sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
+                    });
+            }
+
+            table.Complete();
+
+            if (searchResult.Truncated)
+            {
+                context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+            }
         }
     }
 

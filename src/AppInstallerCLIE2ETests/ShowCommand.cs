@@ -6,6 +6,7 @@
 
 namespace AppInstallerCLIE2ETests
 {
+    using System.Text.Json;
     using AppInstallerCLIE2ETests.Helpers;
     using NUnit.Framework;
 
@@ -147,6 +148,105 @@ namespace AppInstallerCLIE2ETests
             Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
             Assert.True(result.StdOut.Contains("Found TestMultipleInstallers [AppInstallerTest.TestMultipleInstallers]"));
             Assert.True(result.StdOut.Contains("Installer Type: exe (zip)"));
+        }
+
+        /// <summary>
+        /// Test show with --format json.
+        /// </summary>
+        [Test]
+        public void ShowWithFormatJson()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller --format json");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid JSON
+            JsonDocument json = JsonDocument.Parse(result.StdOut);
+            Assert.IsNotNull(json);
+
+            // Verify JSON structure
+            JsonElement root = json.RootElement;
+            Assert.IsTrue(root.TryGetProperty("PackageName", out _));
+            Assert.IsTrue(root.TryGetProperty("PackageId", out _));
+            Assert.IsTrue(root.TryGetProperty("Version", out _));
+            Assert.IsTrue(root.TryGetProperty("Publisher", out _));
+        }
+
+        /// <summary>
+        /// Test show with --format json case insensitive.
+        /// </summary>
+        [Test]
+        public void ShowWithFormatJsonCaseInsensitive()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller --format JSON");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid JSON
+            JsonDocument json = JsonDocument.Parse(result.StdOut);
+            Assert.IsNotNull(json);
+        }
+
+        /// <summary>
+        /// Test show with --format table.
+        /// </summary>
+        [Test]
+        public void ShowWithFormatTable()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller --format table");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's table format (not JSON)
+            Assert.True(result.StdOut.Contains("TestExampleInstaller"));
+            Assert.True(result.StdOut.Contains("AppInstallerTest.TestExampleInstaller"));
+            Assert.Throws<JsonException>(() => JsonDocument.Parse(result.StdOut));
+        }
+
+        /// <summary>
+        /// Test show with --format default (no format specified).
+        /// </summary>
+        [Test]
+        public void ShowWithFormatDefault()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Default should be table format (not JSON)
+            Assert.True(result.StdOut.Contains("TestExampleInstaller"));
+            Assert.Throws<JsonException>(() => JsonDocument.Parse(result.StdOut));
+        }
+
+        /// <summary>
+        /// Test show with invalid --format value.
+        /// </summary>
+        [Test]
+        public void ShowWithInvalidFormat()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller --format html");
+            Assert.AreNotEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+            Assert.True(result.StdOut.Contains("--format must be 'json' or 'table'"));
+        }
+
+        /// <summary>
+        /// Test show with --format json validates optional fields.
+        /// </summary>
+        [Test]
+        public void ShowWithFormatJsonValidatesFields()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller --format json");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            JsonDocument json = JsonDocument.Parse(result.StdOut);
+            JsonElement root = json.RootElement;
+
+            // Required fields
+            Assert.IsTrue(root.TryGetProperty("PackageName", out _));
+            Assert.IsTrue(root.TryGetProperty("PackageId", out _));
+            Assert.IsTrue(root.TryGetProperty("Version", out _));
+            Assert.IsTrue(root.TryGetProperty("Publisher", out _));
+
+            // Optional fields may or may not be present - just verify no crash
+            root.TryGetProperty("Description", out _);
+            root.TryGetProperty("License", out _);
+            root.TryGetProperty("PackageUrl", out _);
         }
     }
 }

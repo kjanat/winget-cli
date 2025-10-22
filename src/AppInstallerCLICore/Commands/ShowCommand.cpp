@@ -34,6 +34,7 @@ namespace AppInstaller::CLI
             Argument::ForType(Execution::Args::Type::AuthenticationMode),
             Argument::ForType(Execution::Args::Type::AuthenticationAccount),
             Argument::ForType(Execution::Args::Type::AcceptSourceAgreements),
+            Argument::ForType(Execution::Args::Type::OutputFormat),
         };
     }
 
@@ -58,6 +59,11 @@ namespace AppInstaller::CLI
             context <<
                 Workflow::CompleteWithEmptySet;
             break;
+        case Args::Type::OutputFormat:
+            // Provide tab completion for format values
+            context.Reporter.Completion() << "json"_liv << std::endl;
+            context.Reporter.Completion() << "table"_liv << std::endl;
+            break;
         default:
             context <<
                 Workflow::CompleteWithSingleSemanticsForValue(valueType);
@@ -72,6 +78,19 @@ namespace AppInstaller::CLI
     void ShowCommand::ValidateArgumentsInternal(Args& execArgs) const
     {
         Argument::ValidateCommonArguments(execArgs);
+
+        if (execArgs.Contains(Execution::Args::Type::OutputFormat))
+        {
+            std::string_view formatView = execArgs.GetArg(Execution::Args::Type::OutputFormat);
+            std::string format = Utility::Trim(std::string{ formatView });
+            format = Utility::ToLower(format);
+
+            if (!format.empty() && format != "json" && format != "table")
+            {
+                throw CommandException(Resource::String::InvalidArgumentValueError,
+                    Utility::LocIndString{ "--format must be 'json' or 'table'" });
+            }
+        }
     }
 
     void ShowCommand::ExecuteInternal(Execution::Context& context) const
