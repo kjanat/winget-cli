@@ -5,6 +5,8 @@
 #include "ShowFlow.h"
 #include <winget/ManifestComparator.h>
 #include "TableOutput.h"
+#include <json/json.h>
+#include <filesystem>
 
 using namespace AppInstaller::Repository;
 using namespace AppInstaller::CLI;
@@ -118,7 +120,211 @@ namespace AppInstaller::CLI::Workflow
 
     void ShowManifestInfo(Execution::Context& context)
     {
-        context << ShowPackageInfo << ShowInstallerInfo;
+        // Check if JSON output is requested
+        if (context.Args.Contains(Execution::Args::Type::OutputFile))
+        {
+            const auto& manifest = context.Get<Execution::Data::Manifest>();
+            const auto& installer = context.Get<Execution::Data::Installer>();
+            
+            Json::Value root(Json::objectValue);
+            
+            // Add package info
+            root["Version"] = manifest.Version;
+            
+            auto description = manifest.CurrentLocalization.Get<Manifest::Localization::Description>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>().empty())
+                root["Publisher"] = manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::PublisherUrl>().empty())
+                root["PublisherUrl"] = manifest.CurrentLocalization.Get<Manifest::Localization::PublisherUrl>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::PublisherSupportUrl>().empty())
+                root["PublisherSupportUrl"] = manifest.CurrentLocalization.Get<Manifest::Localization::PublisherSupportUrl>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::Author>().empty())
+                root["Author"] = manifest.CurrentLocalization.Get<Manifest::Localization::Author>();
+            
+            if (!manifest.Moniker.empty())
+                root["Moniker"] = manifest.Moniker;
+            
+            if (!description.empty() || !manifest.CurrentLocalization.Get<Manifest::Localization::ShortDescription>().empty())
+                root["Description"] = description.empty() ? manifest.CurrentLocalization.Get<Manifest::Localization::ShortDescription>() : description;
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::PackageUrl>().empty())
+                root["PackageUrl"] = manifest.CurrentLocalization.Get<Manifest::Localization::PackageUrl>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::License>().empty())
+                root["License"] = manifest.CurrentLocalization.Get<Manifest::Localization::License>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::LicenseUrl>().empty())
+                root["LicenseUrl"] = manifest.CurrentLocalization.Get<Manifest::Localization::LicenseUrl>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::PrivacyUrl>().empty())
+                root["PrivacyUrl"] = manifest.CurrentLocalization.Get<Manifest::Localization::PrivacyUrl>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::Copyright>().empty())
+                root["Copyright"] = manifest.CurrentLocalization.Get<Manifest::Localization::Copyright>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::CopyrightUrl>().empty())
+                root["CopyrightUrl"] = manifest.CurrentLocalization.Get<Manifest::Localization::CopyrightUrl>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::ReleaseNotes>().empty())
+                root["ReleaseNotes"] = manifest.CurrentLocalization.Get<Manifest::Localization::ReleaseNotes>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::ReleaseNotesUrl>().empty())
+                root["ReleaseNotesUrl"] = manifest.CurrentLocalization.Get<Manifest::Localization::ReleaseNotesUrl>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::PurchaseUrl>().empty())
+                root["PurchaseUrl"] = manifest.CurrentLocalization.Get<Manifest::Localization::PurchaseUrl>();
+            
+            if (!manifest.CurrentLocalization.Get<Manifest::Localization::InstallationNotes>().empty())
+                root["InstallationNotes"] = manifest.CurrentLocalization.Get<Manifest::Localization::InstallationNotes>();
+            
+            const auto& documentations = manifest.CurrentLocalization.Get<Manifest::Localization::Documentations>();
+            if (!documentations.empty())
+            {
+                Json::Value docsArray(Json::arrayValue);
+                for (const auto& documentation : documentations)
+                {
+                    if (!documentation.DocumentUrl.empty())
+                    {
+                        Json::Value doc(Json::objectValue);
+                        if (!documentation.DocumentLabel.empty())
+                            doc["Label"] = documentation.DocumentLabel;
+                        doc["Url"] = documentation.DocumentUrl;
+                        docsArray.append(doc);
+                    }
+                }
+                if (!docsArray.empty())
+                    root["Documentation"] = docsArray;
+            }
+            
+            const auto& tags = manifest.CurrentLocalization.Get<Manifest::Localization::Tags>();
+            if (!tags.empty())
+            {
+                Json::Value tagsArray(Json::arrayValue);
+                for (const auto& tag : tags)
+                {
+                    tagsArray.append(tag);
+                }
+                root["Tags"] = tagsArray;
+            }
+            
+            const auto& agreements = manifest.CurrentLocalization.Get<Manifest::Localization::Agreements>();
+            if (!agreements.empty())
+            {
+                Json::Value agreementsArray(Json::arrayValue);
+                for (const auto& agreement : agreements)
+                {
+                    Json::Value agr(Json::objectValue);
+                    if (!agreement.Label.empty())
+                        agr["Label"] = agreement.Label;
+                    if (!agreement.AgreementText.empty())
+                        agr["AgreementText"] = agreement.AgreementText;
+                    if (!agreement.AgreementUrl.empty())
+                        agr["AgreementUrl"] = agreement.AgreementUrl;
+                    agreementsArray.append(agr);
+                }
+                root["Agreements"] = agreementsArray;
+            }
+            
+            // Add installer info
+            if (installer)
+            {
+                Json::Value installerInfo(Json::objectValue);
+                
+                Manifest::InstallerTypeEnum effectiveInstallerType = installer->EffectiveInstallerType();
+                Manifest::InstallerTypeEnum baseInstallerType = installer->BaseInstallerType;
+                std::string shownInstallerType = Manifest::InstallerTypeToString(effectiveInstallerType);
+                if (effectiveInstallerType != baseInstallerType)
+                {
+                    shownInstallerType += " ("_liv;
+                    shownInstallerType += Manifest::InstallerTypeToString(baseInstallerType);
+                    shownInstallerType += ')';
+                }
+                
+                installerInfo["Type"] = shownInstallerType;
+                
+                if (!installer->Locale.empty())
+                    installerInfo["Locale"] = installer->Locale;
+                
+                if (!installer->Url.empty())
+                    installerInfo["Url"] = installer->Url;
+                
+                if (!installer->Sha256.empty())
+                    installerInfo["Sha256"] = Utility::SHA256::ConvertToString(installer->Sha256);
+                
+                if (!installer->ProductId.empty())
+                    installerInfo["ProductId"] = installer->ProductId;
+                
+                if (!installer->ReleaseDate.empty())
+                    installerInfo["ReleaseDate"] = installer->ReleaseDate;
+                
+                installerInfo["OfflineDistributionSupported"] = !installer->DownloadCommandProhibited;
+                
+                const auto& dependencies = installer->Dependencies;
+                if (dependencies.HasAny())
+                {
+                    Json::Value depsInfo(Json::objectValue);
+                    
+                    if (dependencies.HasAnyOf(Manifest::DependencyType::WindowsFeature))
+                    {
+                        Json::Value winFeatures(Json::arrayValue);
+                        dependencies.ApplyToType(Manifest::DependencyType::WindowsFeature, [&winFeatures](Manifest::Dependency dependency) {
+                            winFeatures.append(dependency.Id());
+                        });
+                        depsInfo["WindowsFeatures"] = winFeatures;
+                    }
+                    
+                    if (dependencies.HasAnyOf(Manifest::DependencyType::WindowsLibrary))
+                    {
+                        Json::Value winLibraries(Json::arrayValue);
+                        dependencies.ApplyToType(Manifest::DependencyType::WindowsLibrary, [&winLibraries](Manifest::Dependency dependency) {
+                            winLibraries.append(dependency.Id());
+                        });
+                        depsInfo["WindowsLibraries"] = winLibraries;
+                    }
+                    
+                    if (dependencies.HasAnyOf(Manifest::DependencyType::Package))
+                    {
+                        Json::Value packages(Json::arrayValue);
+                        dependencies.ApplyToType(Manifest::DependencyType::Package, [&packages](Manifest::Dependency dependency) {
+                            Json::Value pkg(Json::objectValue);
+                            pkg["Id"] = dependency.Id();
+                            if (dependency.MinVersion)
+                            {
+                                pkg["MinVersion"] = dependency.MinVersion.value().ToString();
+                            }
+                            packages.append(pkg);
+                        });
+                        depsInfo["Packages"] = packages;
+                    }
+                    
+                    if (dependencies.HasAnyOf(Manifest::DependencyType::External))
+                    {
+                        Json::Value external(Json::arrayValue);
+                        dependencies.ApplyToType(Manifest::DependencyType::External, [&external](Manifest::Dependency dependency) {
+                            external.append(dependency.Id());
+                        });
+                        depsInfo["External"] = external;
+                    }
+                    
+                    installerInfo["Dependencies"] = depsInfo;
+                }
+                
+                root["Installer"] = installerInfo;
+            }
+            
+            std::filesystem::path outputFilePath{ context.Args.GetArg(Execution::Args::Type::OutputFile) };
+            std::ofstream outputFileStream{ outputFilePath };
+            outputFileStream << root;
+        }
+        else
+        {
+            // Original output
+            context << ShowPackageInfo << ShowInstallerInfo;
+        }
     }
 
     void ShowPackageInfo(Execution::Context& context)
