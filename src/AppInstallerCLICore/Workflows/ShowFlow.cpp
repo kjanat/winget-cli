@@ -3,26 +3,18 @@
 
 #include "pch.h"
 #include "ShowFlow.h"
+#include "WorkflowBase.h"
 #include <winget/ManifestComparator.h>
 #include "TableOutput.h"
 #include <json/json.h>
 
 using namespace AppInstaller::Repository;
 using namespace AppInstaller::CLI;
+using namespace AppInstaller::CLI::Workflow;
 using namespace AppInstaller::Utility;
 using namespace AppInstaller::Utility::literals;
 
 namespace {
-
-    bool IsJsonOutputFormat(const Execution::Context& context)
-    {
-        if (context.Args.Contains(Execution::Args::Type::OutputFormat))
-        {
-            std::string_view format = context.Args.GetArg(Execution::Args::Type::OutputFormat);
-            return Utility::CaseInsensitiveEquals(format, "json");
-        }
-        return false;
-    }
 
     template <typename String>
     void ShowSingleLineField(Execution::OutputStream outputStream, AppInstaller::StringResource::StringId label, const String& value, bool indent = false)

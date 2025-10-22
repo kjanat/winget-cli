@@ -47,26 +47,40 @@ namespace AppInstaller::CLI
 
     void ListCommand::Complete(Execution::Context& context, Execution::Args::Type valueType) const
     {
-        context <<
-            Workflow::OpenSource() <<
-            Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed);
-
         switch (valueType)
         {
-        case Execution::Args::Type::Query:
-            context <<
-                Workflow::RequireCompletionWordNonEmpty <<
-                Workflow::SearchSourceForManyCompletion <<
-                Workflow::CompleteWithMatchedField;
+        case Execution::Args::Type::OutputFormat:
+            // Provide tab completion for format values
+            context.Reporter.Completion() << "json"_liv << std::endl;
+            context.Reporter.Completion() << "table"_liv << std::endl;
             break;
-        case Execution::Args::Type::Id:
-        case Execution::Args::Type::Name:
-        case Execution::Args::Type::Moniker:
-        case Execution::Args::Type::Source:
-        case Execution::Args::Type::Tag:
-        case Execution::Args::Type::Command:
+        default:
             context <<
-                Workflow::CompleteWithSingleSemanticsForValueUsingExistingSource(valueType);
+                Workflow::OpenSource() <<
+                Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed);
+
+            switch (valueType)
+            {
+            case Execution::Args::Type::Query:
+                context <<
+                    Workflow::RequireCompletionWordNonEmpty <<
+                    Workflow::SearchSourceForManyCompletion <<
+                    Workflow::CompleteWithMatchedField;
+                break;
+            case Execution::Args::Type::Id:
+            case Execution::Args::Type::Name:
+            case Execution::Args::Type::Moniker:
+            case Execution::Args::Type::Source:
+            case Execution::Args::Type::Tag:
+            case Execution::Args::Type::Command:
+                context <<
+                    Workflow::CompleteWithSingleSemanticsForValueUsingExistingSource(valueType);
+                break;
+            default:
+                context <<
+                    Workflow::CompleteWithSingleSemanticsForValue(valueType);
+                break;
+            }
             break;
         }
     }
@@ -80,6 +94,18 @@ namespace AppInstaller::CLI
     {
         Argument::ValidateArgumentDependency(execArgs, Execution::Args::Type::IncludeUnknown, Execution::Args::Type::Upgrade);
         Argument::ValidateArgumentDependency(execArgs, Execution::Args::Type::IncludePinned, Execution::Args::Type::Upgrade);
+
+        if (execArgs.Contains(Execution::Args::Type::OutputFormat))
+        {
+            std::string_view format = execArgs.GetArg(Execution::Args::Type::OutputFormat);
+            if (!format.empty() &&
+                !Utility::CaseInsensitiveEquals(format, "json") &&
+                !Utility::CaseInsensitiveEquals(format, "table"))
+            {
+                throw CommandException(Resource::String::InvalidArgumentValueError,
+                    Utility::LocIndString{ "--format must be 'json' or 'table'" });
+            }
+        }
     }
 
     void ListCommand::ExecuteInternal(Execution::Context& context) const

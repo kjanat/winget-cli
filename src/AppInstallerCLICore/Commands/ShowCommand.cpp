@@ -59,6 +59,11 @@ namespace AppInstaller::CLI
             context <<
                 Workflow::CompleteWithEmptySet;
             break;
+        case Args::Type::OutputFormat:
+            // Provide tab completion for format values
+            context.Reporter.Completion() << "json"_liv << std::endl;
+            context.Reporter.Completion() << "table"_liv << std::endl;
+            break;
         default:
             context <<
                 Workflow::CompleteWithSingleSemanticsForValue(valueType);
@@ -73,6 +78,18 @@ namespace AppInstaller::CLI
     void ShowCommand::ValidateArgumentsInternal(Args& execArgs) const
     {
         Argument::ValidateCommonArguments(execArgs);
+
+        if (execArgs.Contains(Execution::Args::Type::OutputFormat))
+        {
+            std::string_view format = execArgs.GetArg(Execution::Args::Type::OutputFormat);
+            if (!format.empty() &&
+                !Utility::CaseInsensitiveEquals(format, "json") &&
+                !Utility::CaseInsensitiveEquals(format, "table"))
+            {
+                throw CommandException(Resource::String::InvalidArgumentValueError,
+                    Utility::LocIndString{ "--format must be 'json' or 'table'" });
+            }
+        }
     }
 
     void ShowCommand::ExecuteInternal(Execution::Context& context) const

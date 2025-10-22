@@ -28,18 +28,18 @@ using namespace winrt::Windows::Foundation;
 
 namespace AppInstaller::CLI::Workflow
 {
+    bool IsJsonOutputFormat(const Execution::Context& context)
+    {
+        if (context.Args.Contains(Execution::Args::Type::OutputFormat))
+        {
+            std::string_view format = context.Args.GetArg(Execution::Args::Type::OutputFormat);
+            return Utility::CaseInsensitiveEquals(format, "json");
+        }
+        return false;
+    }
+
     namespace
     {
-        bool IsJsonOutputFormat(const Execution::Context& context)
-        {
-            if (context.Args.Contains(Execution::Args::Type::OutputFormat))
-            {
-                std::string_view format = context.Args.GetArg(Execution::Args::Type::OutputFormat);
-                return Utility::CaseInsensitiveEquals(format, "json");
-            }
-            return false;
-        }
-
         std::string GetMatchCriteriaDescriptor(const ResultMatch& match)
         {
             if (match.MatchCriteria.Field != PackageMatchField::Id && match.MatchCriteria.Field != PackageMatchField::Name)
