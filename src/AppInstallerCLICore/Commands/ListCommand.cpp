@@ -97,10 +97,11 @@ namespace AppInstaller::CLI
 
         if (execArgs.Contains(Execution::Args::Type::OutputFormat))
         {
-            std::string_view format = execArgs.GetArg(Execution::Args::Type::OutputFormat);
-            if (!format.empty() &&
-                !Utility::CaseInsensitiveEquals(format, "json") &&
-                !Utility::CaseInsensitiveEquals(format, "table"))
+            std::string_view formatView = execArgs.GetArg(Execution::Args::Type::OutputFormat);
+            std::string format = Utility::Trim(std::string{ formatView });
+            format = Utility::ToLower(format);
+
+            if (!format.empty() && format != "json" && format != "table")
             {
                 throw CommandException(Resource::String::InvalidArgumentValueError,
                     Utility::LocIndString{ "--format must be 'json' or 'table'" });
