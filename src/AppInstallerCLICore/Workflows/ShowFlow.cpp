@@ -318,7 +318,10 @@ namespace AppInstaller::CLI::Workflow
             
             std::filesystem::path outputFilePath{ context.Args.GetArg(Execution::Args::Type::OutputFile) };
             std::ofstream outputFileStream{ outputFilePath };
-            outputFileStream << root;
+            Json::StreamWriterBuilder writerBuilder;
+            writerBuilder["indentation"] = "  ";
+            std::unique_ptr<Json::StreamWriter> writer(writerBuilder.newStreamWriter());
+            writer->write(root, &outputFileStream);
         }
         else
         {
