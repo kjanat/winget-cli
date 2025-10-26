@@ -113,6 +113,7 @@ namespace AppInstaller::CLI
     {
         return {
             Argument::ForType(Args::Type::SourceName),
+            Argument::ForType(Args::Type::OutputFormat),
         };
     }
 

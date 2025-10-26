@@ -50,6 +50,7 @@ The options allow you to customize the list experience to meet your needs.
 | **--upgrade-available** | Lists only packages which have an upgrade available. |
 | **-u,--unknown,--include-unknown** | List packages even if their current version cannot be determined. Can only be used with the --upgrade-available argument. |
 | **--pinned,--include-pinned** | List packages even if they have a pin that prevents upgrade. Can only be used with the --upgrade-available argument. |
+| **--format** | Specifies the output format. Supported values: json, xml |
 | **-?,--help** | Get additional help on this command. |
 | **--wait** | Prompts the user to press any key before exiting. |
 | **--logs,--open-logs** | Open the default logs location. |

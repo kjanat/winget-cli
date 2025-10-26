@@ -185,6 +185,9 @@ namespace AppInstaller::CLI::Execution
 
             ToolVersion,
 
+            // Output format
+            OutputFormat,
+
             // Used for demonstration purposes
             ExperimentalArg,
 

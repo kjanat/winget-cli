@@ -18,6 +18,7 @@ namespace AppInstaller::CLI
         Utility::LocIndView HelpLink() const override;
 
     protected:
+        std::vector<Argument> GetArguments() const override;
         void ExecuteInternal(Execution::Context& context) const override;
     };
 }

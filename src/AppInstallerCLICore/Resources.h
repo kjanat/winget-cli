@@ -313,6 +313,8 @@ namespace AppInstaller::CLI::Resource
         WINGET_DEFINE_RESOURCE_STRINGID(FontFileNotSupported);
         WINGET_DEFINE_RESOURCE_STRINGID(FontDetailsArgumentDescription);
         WINGET_DEFINE_RESOURCE_STRINGID(FontFilePaths);
+        WINGET_DEFINE_RESOURCE_STRINGID(FormatArgumentDescription);
+        WINGET_DEFINE_RESOURCE_STRINGID(FormatUnsupportedError);
         WINGET_DEFINE_RESOURCE_STRINGID(FontInstallFailed);
         WINGET_DEFINE_RESOURCE_STRINGID(FontListCommandLongDescription);
         WINGET_DEFINE_RESOURCE_STRINGID(FontListCommandShortDescription);

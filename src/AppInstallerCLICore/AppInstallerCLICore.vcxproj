@@ -342,6 +342,7 @@
     <ClInclude Include="ExecutionProgress.h" />
     <ClInclude Include="ExecutionReporter.h" />
     <ClInclude Include="Invocation.h" />
+    <ClInclude Include="OutputFormatter.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="PortableInstaller.h" />
     <ClInclude Include="Public\AppInstallerCLICore.h" />
@@ -436,6 +437,7 @@
     <ClCompile Include="ExecutionContext.cpp" />
     <ClCompile Include="ExecutionProgress.cpp" />
     <ClCompile Include="ExecutionReporter.cpp" />
+    <ClCompile Include="OutputFormatter.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>

@@ -3,12 +3,20 @@
 #include "pch.h"
 #include "FeaturesCommand.h"
 #include "TableOutput.h"
+#include "OutputFormatter.h"
 #include <winget/UserSettings.h>
 
 namespace AppInstaller::CLI
 {
     using namespace Utility::literals;
     using namespace AppInstaller::Settings;
+
+    std::vector<Argument> FeaturesCommand::GetArguments() const
+    {
+        return {
+            Argument::ForType(Execution::Args::Type::OutputFormat),
+        };
+    }
 
     Resource::LocString FeaturesCommand::ShortDescription() const
     {
@@ -30,39 +38,80 @@ namespace AppInstaller::CLI
 #ifdef WINGET_DISABLE_EXPERIMENTAL_FEATURES
         context.Reporter.Info() << Resource::String::FeaturesMessageDisabledByBuild << std::endl;
 #else
-        if (GroupPolicies().IsEnabled(TogglePolicy::Policy::ExperimentalFeatures) &&
-            GroupPolicies().IsEnabled(TogglePolicy::Policy::Settings))
-        {
-            context.Reporter.Info() << Resource::String::FeaturesMessage << std::endl << std::endl;
-        }
-        else
-        {
-            context.Reporter.Info() << Resource::String::FeaturesMessageDisabledByPolicy << std::endl << std::endl;
-        }
-
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
         auto features = ExperimentalFeature::GetAllFeatures();
 
-        if (!features.empty())
+        if (outputFormat == Execution::OutputFormat::Json)
         {
-            Execution::TableOutput<4> table(context.Reporter, {
-                Resource::String::FeaturesFeature,
-                Resource::String::FeaturesStatus,
-                Resource::String::FeaturesProperty,
-                Resource::String::FeaturesLink });
+            Execution::JsonOutputFormatter formatter;
+            formatter.StartOutput();
+
             for (const auto& feature : features)
             {
-                table.OutputLine({
-                    std::string{ feature.Name() },
-                    Resource::LocString{ ExperimentalFeature::IsEnabled(feature.GetFeature()) ? Resource::String::FeaturesEnabled : Resource::String::FeaturesDisabled},
-                    std::string { feature.JsonName() },
-                    std::string{ feature.Link() } });
+                formatter.AddFeatureEntry(
+                    static_cast<std::string>(feature.Name()),
+                    ExperimentalFeature::IsEnabled(feature.GetFeature()) ? "enabled" : "disabled",
+                    static_cast<std::string>(feature.JsonName()),
+                    static_cast<std::string>(feature.Link())
+                );
             }
-            table.Complete();
+
+            formatter.EndOutput();
+            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+        }
+        else if (outputFormat == Execution::OutputFormat::Xml)
+        {
+            Execution::XmlOutputFormatter formatter;
+            formatter.StartOutput();
+
+            for (const auto& feature : features)
+            {
+                formatter.AddFeatureEntry(
+                    static_cast<std::string>(feature.Name()),
+                    ExperimentalFeature::IsEnabled(feature.GetFeature()) ? "enabled" : "disabled",
+                    static_cast<std::string>(feature.JsonName()),
+                    static_cast<std::string>(feature.Link())
+                );
+            }
+
+            formatter.EndOutput();
+            context.Reporter.Info() << formatter.GetOutput() << std::endl;
         }
         else
         {
-            // Better work hard to get some out there!
-            context.Reporter.Info() << Resource::String::NoExperimentalFeaturesMessage << std::endl;
+            // Text format (existing implementation)
+            if (GroupPolicies().IsEnabled(TogglePolicy::Policy::ExperimentalFeatures) &&
+                GroupPolicies().IsEnabled(TogglePolicy::Policy::Settings))
+            {
+                context.Reporter.Info() << Resource::String::FeaturesMessage << std::endl << std::endl;
+            }
+            else
+            {
+                context.Reporter.Info() << Resource::String::FeaturesMessageDisabledByPolicy << std::endl << std::endl;
+            }
+
+            if (!features.empty())
+            {
+                Execution::TableOutput<4> table(context.Reporter, {
+                    Resource::String::FeaturesFeature,
+                    Resource::String::FeaturesStatus,
+                    Resource::String::FeaturesProperty,
+                    Resource::String::FeaturesLink });
+                for (const auto& feature : features)
+                {
+                    table.OutputLine({
+                        std::string{ feature.Name() },
+                        Resource::LocString{ ExperimentalFeature::IsEnabled(feature.GetFeature()) ? Resource::String::FeaturesEnabled : Resource::String::FeaturesDisabled},
+                        std::string { feature.JsonName() },
+                        std::string{ feature.Link() } });
+                }
+                table.Complete();
+            }
+            else
+            {
+                // Better work hard to get some out there!
+                context.Reporter.Info() << Resource::String::NoExperimentalFeaturesMessage << std::endl;
+            }
         }
 #endif
     }

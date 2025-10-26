@@ -7,6 +7,7 @@
 #include "PromptFlow.h"
 #include "Sixel.h"
 #include "TableOutput.h"
+#include "OutputFormatter.h"
 #include <winget/FileCache.h>
 #include <winget/ExperimentalFeature.h>
 #include <winget/ManifestYamlParser.h>
@@ -310,6 +311,34 @@ namespace AppInstaller::CLI::Workflow
             }
 
             table.Complete();
+        }
+
+        void OutputInstalledPackagesToFormatter(Execution::JsonOutputFormatter& formatter, const std::vector<InstalledPackagesTableLine>& lines)
+        {
+            for (const auto& line : lines)
+            {
+                formatter.AddListEntry(
+                    static_cast<std::string>(line.Name),
+                    static_cast<std::string>(line.Id),
+                    static_cast<std::string>(line.InstalledVersion),
+                    static_cast<std::string>(line.AvailableVersion),
+                    static_cast<std::string>(line.Source)
+                );
+            }
+        }
+
+        void OutputInstalledPackagesToFormatter(Execution::XmlOutputFormatter& formatter, const std::vector<InstalledPackagesTableLine>& lines)
+        {
+            for (const auto& line : lines)
+            {
+                formatter.AddListEntry(
+                    static_cast<std::string>(line.Name),
+                    static_cast<std::string>(line.Id),
+                    static_cast<std::string>(line.InstalledVersion),
+                    static_cast<std::string>(line.AvailableVersion),
+                    static_cast<std::string>(line.Source)
+                );
+            }
         }
     }
 
@@ -776,35 +805,84 @@ namespace AppInstaller::CLI::Workflow
     void ReportSearchResult(Execution::Context& context)
     {
         auto& searchResult = context.Get<Execution::Data::SearchResult>();
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
 
-        bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
-        Execution::TableOutput<5> table(context.Reporter,
+        if (outputFormat == Execution::OutputFormat::Json)
+        {
+            Execution::JsonOutputFormatter formatter;
+            formatter.StartOutput();
+
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
             {
-                Resource::String::SearchName,
-                Resource::String::SearchId,
-                Resource::String::SearchVersion,
-                Resource::String::SearchMatch,
-                Resource::String::SearchSource
-            });
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                formatter.AddPackageEntry(
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Name)),
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Id)),
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Version)),
+                    static_cast<std::string>(GetMatchCriteriaDescriptor(searchResult.Matches[i])),
+                    sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
+                );
+            }
 
-        for (size_t i = 0; i < searchResult.Matches.size(); ++i)
-        {
-            auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
-
-            table.OutputLine({
-                latestVersion->GetProperty(PackageVersionProperty::Name),
-                latestVersion->GetProperty(PackageVersionProperty::Id),
-                latestVersion->GetProperty(PackageVersionProperty::Version),
-                GetMatchCriteriaDescriptor(searchResult.Matches[i]),
-                sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
-                });
+            formatter.SetTruncated(searchResult.Truncated);
+            formatter.EndOutput();
+            context.Reporter.Info() << formatter.GetOutput() << std::endl;
         }
-
-        table.Complete();
-
-        if (searchResult.Truncated)
+        else if (outputFormat == Execution::OutputFormat::Xml)
         {
-            context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+            Execution::XmlOutputFormatter formatter;
+            formatter.StartOutput();
+
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
+            {
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                formatter.AddPackageEntry(
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Name)),
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Id)),
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Version)),
+                    static_cast<std::string>(GetMatchCriteriaDescriptor(searchResult.Matches[i])),
+                    sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
+                );
+            }
+
+            formatter.SetTruncated(searchResult.Truncated);
+            formatter.EndOutput();
+            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+        }
+        else
+        {
+            // Text format (existing implementation)
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+            Execution::TableOutput<5> table(context.Reporter,
+                {
+                    Resource::String::SearchName,
+                    Resource::String::SearchId,
+                    Resource::String::SearchVersion,
+                    Resource::String::SearchMatch,
+                    Resource::String::SearchSource
+                });
+
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
+            {
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+
+                table.OutputLine({
+                    latestVersion->GetProperty(PackageVersionProperty::Name),
+                    latestVersion->GetProperty(PackageVersionProperty::Id),
+                    latestVersion->GetProperty(PackageVersionProperty::Version),
+                    GetMatchCriteriaDescriptor(searchResult.Matches[i]),
+                    sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
+                    });
+            }
+
+            table.Complete();
+
+            if (searchResult.Truncated)
+            {
+                context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+            }
         }
     }
 
@@ -928,6 +1006,7 @@ namespace AppInstaller::CLI::Workflow
     void ReportListResult::operator()(Execution::Context& context) const
     {
         auto& searchResult = context.Get<Execution::Data::SearchResult>();
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
 
         std::vector<InstalledPackagesTableLine> lines;
         std::vector<InstalledPackagesTableLine> linesForExplicitUpgrade;
@@ -1061,49 +1140,81 @@ namespace AppInstaller::CLI::Workflow
             }
         }
 
-        OutputInstalledPackagesTable(context, lines);
-
-        if (lines.empty())
+        if (outputFormat == Execution::OutputFormat::Json)
         {
-            context.Reporter.Info() << Resource::String::NoInstalledPackageFound << std::endl;
+            Execution::JsonOutputFormatter formatter;
+            formatter.StartOutput();
+
+            // Add all packages
+            OutputInstalledPackagesToFormatter(formatter, lines);
+            OutputInstalledPackagesToFormatter(formatter, linesForExplicitUpgrade);
+            OutputInstalledPackagesToFormatter(formatter, linesForPins);
+
+            formatter.SetTruncated(searchResult.Truncated);
+            formatter.EndOutput();
+            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+        }
+        else if (outputFormat == Execution::OutputFormat::Xml)
+        {
+            Execution::XmlOutputFormatter formatter;
+            formatter.StartOutput();
+
+            // Add all packages
+            OutputInstalledPackagesToFormatter(formatter, lines);
+            OutputInstalledPackagesToFormatter(formatter, linesForExplicitUpgrade);
+            OutputInstalledPackagesToFormatter(formatter, linesForPins);
+
+            formatter.SetTruncated(searchResult.Truncated);
+            formatter.EndOutput();
+            context.Reporter.Info() << formatter.GetOutput() << std::endl;
         }
         else
         {
-            if (searchResult.Truncated)
+            // Text format (existing implementation)
+            OutputInstalledPackagesTable(context, lines);
+
+            if (lines.empty())
             {
-                context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+                context.Reporter.Info() << Resource::String::NoInstalledPackageFound << std::endl;
+            }
+            else
+            {
+                if (searchResult.Truncated)
+                {
+                    context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+                }
+
+                if (m_onlyShowUpgrades)
+                {
+                    context.Reporter.Info() << Resource::String::AvailableUpgrades(availableUpgradesCount) << std::endl;
+                }
+            }
+
+            if (!linesForExplicitUpgrade.empty())
+            {
+                context.Reporter.Info() << std::endl << Resource::String::UpgradeAvailableForPinned << std::endl;
+                OutputInstalledPackagesTable(context, linesForExplicitUpgrade);
+            }
+
+            if (!linesForPins.empty())
+            {
+                context.Reporter.Info() << std::endl << Resource::String::UpgradeBlockedByPinCount(linesForPins.size()) << std::endl;
+                OutputInstalledPackagesTable(context, linesForPins);
             }
 
             if (m_onlyShowUpgrades)
             {
-                context.Reporter.Info() << Resource::String::AvailableUpgrades(availableUpgradesCount) << std::endl;
-            }
-        }
+                if (packagesWithUnknownVersionSkipped > 0)
+                {
+                    AICLI_LOG(CLI, Info, << packagesWithUnknownVersionSkipped << " package(s) skipped due to unknown installed version");
+                    context.Reporter.Info() << Resource::String::UpgradeUnknownVersionCount(packagesWithUnknownVersionSkipped) << std::endl;
+                }
 
-        if (!linesForExplicitUpgrade.empty())
-        {
-            context.Reporter.Info() << std::endl << Resource::String::UpgradeAvailableForPinned << std::endl;
-            OutputInstalledPackagesTable(context, linesForExplicitUpgrade);
-        }
-
-        if (!linesForPins.empty())
-        {
-            context.Reporter.Info() << std::endl << Resource::String::UpgradeBlockedByPinCount(linesForPins.size()) << std::endl;
-            OutputInstalledPackagesTable(context, linesForPins);
-        }
-
-        if (m_onlyShowUpgrades)
-        {
-            if (packagesWithUnknownVersionSkipped > 0)
-            {
-                AICLI_LOG(CLI, Info, << packagesWithUnknownVersionSkipped << " package(s) skipped due to unknown installed version");
-                context.Reporter.Info() << Resource::String::UpgradeUnknownVersionCount(packagesWithUnknownVersionSkipped) << std::endl;
-            }
-
-            if (packagesWithUserPinsSkipped > 0)
-            {
-                AICLI_LOG(CLI, Info, << packagesWithUserPinsSkipped << " package(s) skipped due to user pins");
-                context.Reporter.Info() << Resource::String::UpgradePinnedByUserCount(packagesWithUserPinsSkipped) << std::endl;
+                if (packagesWithUserPinsSkipped > 0)
+                {
+                    AICLI_LOG(CLI, Info, << packagesWithUserPinsSkipped << " package(s) skipped due to user pins");
+                    context.Reporter.Info() << Resource::String::UpgradePinnedByUserCount(packagesWithUserPinsSkipped) << std::endl;
+                }
             }
         }
     }

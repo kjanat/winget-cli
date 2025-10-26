@@ -3432,6 +3432,12 @@ An unlocalized JSON fragment will follow on another line.</comment>
   <data name="FontDetailsArgumentDescription" xml:space="preserve">
     <value>Show font file detailed information.</value>
   </data>
+  <data name="FormatArgumentDescription" xml:space="preserve">
+    <value>Specifies the output format. Supported formats: json, xml</value>
+  </data>
+  <data name="FormatUnsupportedError" xml:space="preserve">
+    <value>The specified format '{0}' is not supported. Supported formats: json, xml</value>
+  </data>
   <data name="FontValidationFailed" xml:space="preserve">
     <value>Validation of the font package failed.</value>
   </data>
