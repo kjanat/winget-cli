@@ -30,7 +30,8 @@ namespace AppInstaller::CLI
             Argument::ForType(Execution::Args::Type::AcceptSourceAgreements),
             Argument{ Execution::Args::Type::Upgrade, Resource::String::UpgradeArgumentDescription, ArgumentType::Flag, Argument::Visibility::Help },
             Argument{ Execution::Args::Type::IncludeUnknown, Resource::String::IncludeUnknownInListArgumentDescription, ArgumentType::Flag },
-            Argument{ Execution::Args::Type::IncludePinned, Resource::String::IncludePinnedInListArgumentDescription, ArgumentType::Flag},
+            Argument{ Execution::Args::Type::IncludePinned, Resource::String::IncludePinnedInListArgumentDescription, ArgumentType::Flag },
+            Argument::ForType(Execution::Args::Type::OutputFormat),
         };
     }
 
@@ -46,26 +47,40 @@ namespace AppInstaller::CLI
 
     void ListCommand::Complete(Execution::Context& context, Execution::Args::Type valueType) const
     {
-        context <<
+        switch (valueType)
+        {
+        case Execution::Args::Type::OutputFormat:
+            // Provide tab completion for format values
+            context.Reporter.Completion() << "json"_liv << std::endl;
+            context.Reporter.Completion() << "table"_liv << std::endl;
+            break;
+        default:
+            context <<
             Workflow::OpenSource() <<
             Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed);
 
-        switch (valueType)
-        {
-        case Execution::Args::Type::Query:
-            context <<
+            switch (valueType)
+            {
+            case Execution::Args::Type::Query:
+                context <<
                 Workflow::RequireCompletionWordNonEmpty <<
                 Workflow::SearchSourceForManyCompletion <<
                 Workflow::CompleteWithMatchedField;
-            break;
-        case Execution::Args::Type::Id:
-        case Execution::Args::Type::Name:
-        case Execution::Args::Type::Moniker:
-        case Execution::Args::Type::Source:
-        case Execution::Args::Type::Tag:
-        case Execution::Args::Type::Command:
-            context <<
+                break;
+            case Execution::Args::Type::Id:
+            case Execution::Args::Type::Name:
+            case Execution::Args::Type::Moniker:
+            case Execution::Args::Type::Source:
+            case Execution::Args::Type::Tag:
+            case Execution::Args::Type::Command:
+                context <<
                 Workflow::CompleteWithSingleSemanticsForValueUsingExistingSource(valueType);
+                break;
+            default:
+                context <<
+                Workflow::CompleteWithSingleSemanticsForValue(valueType);
+                break;
+            }
             break;
         }
     }
@@ -79,6 +94,19 @@ namespace AppInstaller::CLI
     {
         Argument::ValidateArgumentDependency(execArgs, Execution::Args::Type::IncludeUnknown, Execution::Args::Type::Upgrade);
         Argument::ValidateArgumentDependency(execArgs, Execution::Args::Type::IncludePinned, Execution::Args::Type::Upgrade);
+
+        if (execArgs.Contains(Execution::Args::Type::OutputFormat))
+        {
+            std::string_view formatView = execArgs.GetArg(Execution::Args::Type::OutputFormat);
+            std::string format = Utility::Trim(std::string{ formatView });
+            format = Utility::ToLower(format);
+
+            if (!format.empty() && format != "json" && format != "table")
+            {
+                throw CommandException(Resource::String::InvalidArgumentValueError,
+                    Utility::LocIndString{ "--format must be 'json' or 'table'" });
+            }
+        }
     }
 
     void ListCommand::ExecuteInternal(Execution::Context& context) const
@@ -86,11 +114,11 @@ namespace AppInstaller::CLI
         context.SetFlags(Execution::ContextFlag::TreatSourceFailuresAsWarning);
 
         context <<
-            Workflow::OpenSource() <<
-            Workflow::OpenCompositeSource(Workflow::DetermineInstalledSource(context)) <<
-            Workflow::SearchSourceForMany <<
-            Workflow::HandleSearchResultFailures <<
-            Workflow::EnsureMatchesFromSearchResult(OperationType::List) <<
-            Workflow::ReportListResult(context.Args.Contains(Execution::Args::Type::Upgrade));
+        Workflow::OpenSource() <<
+        Workflow::OpenCompositeSource(Workflow::DetermineInstalledSource(context)) <<
+        Workflow::SearchSourceForMany <<
+        Workflow::HandleSearchResultFailures <<
+        Workflow::EnsureMatchesFromSearchResult(OperationType::List) <<
+        Workflow::ReportListResult(context.Args.Contains(Execution::Args::Type::Upgrade));
     }
-}
+}S

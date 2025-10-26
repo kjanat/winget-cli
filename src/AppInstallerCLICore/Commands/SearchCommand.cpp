@@ -29,6 +29,7 @@ namespace AppInstaller::CLI
             Argument::ForType(Execution::Args::Type::AuthenticationAccount),
             Argument::ForType(Execution::Args::Type::AcceptSourceAgreements),
             Argument::ForType(Execution::Args::Type::ListVersions),
+            Argument::ForType(Execution::Args::Type::OutputFormat),
         };
     }
 
@@ -48,10 +49,10 @@ namespace AppInstaller::CLI
         {
         case Execution::Args::Type::Query:
             context <<
-                Workflow::OpenSource() <<
-                Workflow::RequireCompletionWordNonEmpty <<
-                Workflow::SearchSourceForManyCompletion <<
-                Workflow::CompleteWithMatchedField;
+            Workflow::OpenSource() <<
+            Workflow::RequireCompletionWordNonEmpty <<
+            Workflow::SearchSourceForManyCompletion <<
+            Workflow::CompleteWithMatchedField;
             break;
         case Execution::Args::Type::Id:
         case Execution::Args::Type::Name:
@@ -60,7 +61,16 @@ namespace AppInstaller::CLI
         case Execution::Args::Type::Command:
         case Execution::Args::Type::Source:
             context <<
-                Workflow::CompleteWithSingleSemanticsForValue(valueType);
+            Workflow::CompleteWithSingleSemanticsForValue(valueType);
+            break;
+        case Execution::Args::Type::OutputFormat:
+            // Provide tab completion for format values
+            context.Reporter.Completion() << "json"_liv << std::endl;
+            context.Reporter.Completion() << "table"_liv << std::endl;
+            break;
+        default:
+            context <<
+            Workflow::CompleteWithSingleSemanticsForValue(valueType);
             break;
         }
     }
@@ -73,6 +83,19 @@ namespace AppInstaller::CLI
     void SearchCommand::ValidateArgumentsInternal(Args& execArgs) const
     {
         Argument::ValidateCommonArguments(execArgs);
+
+        if (execArgs.Contains(Execution::Args::Type::OutputFormat))
+        {
+            std::string_view formatView = execArgs.GetArg(Execution::Args::Type::OutputFormat);
+            std::string format = Utility::Trim(std::string{ formatView });
+            format = Utility::ToLower(format);
+
+            if (!format.empty() && format != "json" && format != "table")
+            {
+                throw CommandException(Resource::String::InvalidArgumentValueError,
+                    Utility::LocIndString{ "--format must be 'json' or 'table'" });
+            }
+        }
     }
 
     void SearchCommand::ExecuteInternal(Context& context) const
@@ -80,23 +103,23 @@ namespace AppInstaller::CLI
         context.SetFlags(Execution::ContextFlag::TreatSourceFailuresAsWarning);
 
         context <<
-            Workflow::OpenSource() <<
-            Workflow::SearchSourceForMany <<
-            Workflow::HandleSearchResultFailures;
+        Workflow::OpenSource() <<
+        Workflow::SearchSourceForMany <<
+        Workflow::HandleSearchResultFailures;
 
-            if (context.Args.Contains(Execution::Args::Type::ListVersions))
-            {
-                context <<
-                Workflow::EnsureOneMatchFromSearchResult(OperationType::Search) <<
-                Workflow::ReportPackageIdentity <<
-                Workflow::ShowAppVersions;
-            }
-            else
-            {
-                context << 
-                    Workflow::EnsureMatchesFromSearchResult(OperationType::Search) <<
-                    Workflow::ReportSearchResult;
-            }
-        
+        if (context.Args.Contains(Execution::Args::Type::ListVersions))
+        {
+            context <<
+            Workflow::EnsureOneMatchFromSearchResult(OperationType::Search) <<
+            Workflow::ReportPackageIdentity <<
+            Workflow::ShowAppVersions;
+        }
+        else
+        {
+            context <<
+            Workflow::EnsureMatchesFromSearchResult(OperationType::Search) <<
+            Workflow::ReportSearchResult;
+        }
+
     }
 }

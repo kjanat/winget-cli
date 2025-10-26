@@ -296,6 +296,7 @@
     <ClCompile Include="ResumeFlow.cpp" />
     <ClCompile Include="Runtime.cpp" />
     <ClCompile Include="SearchRequestSerializer.cpp" />
+    <ClCompile Include="OutputFormat.cpp" />
     <ClCompile Include="ShowFlow.cpp" />
     <ClCompile Include="Sixel.cpp" />
     <ClCompile Include="SourceFlow.cpp" />

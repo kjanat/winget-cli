@@ -85,6 +85,9 @@ namespace AppInstaller::CLI::Workflow
     // Helper to create authentication arguments from context input.
     Authentication::AuthenticationArguments GetAuthenticationArguments(const Execution::Context& context);
 
+    // Helper to check if JSON output format is requested.
+    bool IsJsonOutputFormat(const Execution::Context& context);
+
     // Helper to report exceptions and return the HRESULT.
     // If context is null, no output will be attempted.
     HRESULT HandleException(Execution::Context* context, std::exception_ptr exception);
@@ -104,7 +107,7 @@ namespace AppInstaller::CLI::Workflow
         OpenSource(bool forDependencies = false) : WorkflowTask("OpenSource"), m_forDependencies(forDependencies) {}
 
         void operator()(Execution::Context& context) const override;
-    
+
     private:
         bool m_forDependencies;
     };

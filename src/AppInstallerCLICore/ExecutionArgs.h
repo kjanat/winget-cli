@@ -170,6 +170,7 @@ namespace AppInstaller::CLI::Execution
             OpenLogs, // Opens the default logs directory after executing the command
             Force, // Forces the execution of the workflow with non security related issues
             OutputFile,
+            OutputFormat, // Specifies the output format (json, table, etc.)
             Correlation,
 
             DependencySource, // Index source to be queried against for finding dependencies
@@ -192,7 +193,7 @@ namespace AppInstaller::CLI::Execution
             Max
         };
 
-        template<typename... T, std::enable_if_t<(... && std::is_same_v<T, Args::Type>), bool> = true>
+        template <typename... T, std::enable_if_t<(... && std::is_same_v<T, Args::Type>), bool> = true>
         bool Contains(T... arg) const
         {
             return (... && (m_parsedArgs.count(arg) != 0));
@@ -251,7 +252,7 @@ namespace AppInstaller::CLI::Execution
         {
             std::vector<Type> types;
 
-            for (auto const& i : m_parsedArgs)
+            for (const auto& i : m_parsedArgs)
             {
                 types.emplace_back(i.first);
             }
@@ -265,7 +266,7 @@ namespace AppInstaller::CLI::Execution
         void MakeMultiQueryContainUniqueValues()
         {
             auto itr = m_parsedArgs.find(Type::MultiQuery);
-            
+
             // If there is not a value in MultiQuery, or there is only one value, it is presumed to be unique
             if (itr == m_parsedArgs.end() || itr->second.size() == 1)
             {

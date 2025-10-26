@@ -132,7 +132,7 @@ namespace AppInstaller::CLI
         case Execution::Args::Type::ValidateManifest:
             return { type, "manifest"_liv };
         case Execution::Args::Type::IgnoreWarnings:
-            return { type, "ignore-warnings"_liv, "nowarn"_liv};
+            return { type, "ignore-warnings"_liv, "nowarn"_liv };
 
         // Complete Command
         case Execution::Args::Type::Word:
@@ -180,7 +180,7 @@ namespace AppInstaller::CLI
 
         // List command
         case Execution::Args::Type::Upgrade:
-            return { type, "upgrade-available"_liv};
+            return { type, "upgrade-available"_liv };
 
         // Pin command
         case Execution::Args::Type::GatedVersion:
@@ -293,6 +293,8 @@ namespace AppInstaller::CLI
             return { type, "force"_liv, ArgTypeCategory::CopyFlagToSubContext };
         case Execution::Args::Type::OutputFile:
             return { type, "output"_liv, 'o' };
+        case Execution::Args::Type::OutputFormat:
+            return { type, "format"_liv };
         case Execution::Args::Type::Correlation:
             return { type, "correlation"_liv };
 
@@ -319,7 +321,7 @@ namespace AppInstaller::CLI
 
         // Used for demonstration purposes
         case Execution::Args::Type::ExperimentalArg:
-                return { type, "arg"_liv };
+            return { type, "arg"_liv };
 
         default:
             THROW_HR(E_UNEXPECTED);
@@ -339,7 +341,7 @@ namespace AppInstaller::CLI
         switch (type)
         {
         case Args::Type::Query:
-            return Argument{ type, Resource::String::QueryArgumentDescription, ArgumentType::Positional};
+            return Argument{ type, Resource::String::QueryArgumentDescription, ArgumentType::Positional };
         case Args::Type::MultiQuery:
             return Argument{ type, Resource::String::MultiQueryArgumentDescription, ArgumentType::Positional }.SetCountLimit(128);
         case Args::Type::Manifest:
@@ -478,6 +480,8 @@ namespace AppInstaller::CLI
             return Argument{ type, Resource::String::FontDetailsArgumentDescription, ArgumentType::Flag, false };
         case Args::Type::Correlation:
             return Argument{ type, Resource::String::CorrelationArgumentDescription, ArgumentType::Standard, Argument::Visibility::Hidden };
+        case Args::Type::OutputFormat:
+            return Argument{ type, Resource::String::OutputFormatArgumentDescription, ArgumentType::Standard, Argument::Visibility::Help };
         default:
             THROW_HR(E_UNEXPECTED);
         }
