@@ -88,7 +88,7 @@ namespace AppInstaller::CLI
             if (!format.empty() && format != "json" && format != "table")
             {
                 throw CommandException(Resource::String::InvalidArgumentValueError,
-                    Utility::LocIndString{ "--format must be 'json' or 'table'" });
+                    Utility::LocIndString("--format must be 'json' or 'table'"));
             }
         }
     }

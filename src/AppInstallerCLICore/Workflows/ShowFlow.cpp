@@ -128,7 +128,7 @@ namespace AppInstaller::CLI::Workflow
         if (IsJsonOutputFormat(context))
         {
             const auto& manifest = context.Get<Execution::Data::Manifest>();
-            const auto* installer = context.Has<Execution::Data::Installer>() ? &context.Get<Execution::Data::Installer>() : nullptr;
+            const auto* installer = context.Contains(Execution::Data::Installer) ? &context.Get<Execution::Data::Installer>() : nullptr;
 
             Json::Value root{ Json::ValueType::objectValue };
 
