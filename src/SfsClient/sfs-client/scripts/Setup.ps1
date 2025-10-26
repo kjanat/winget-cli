@@ -16,6 +16,7 @@ PS> .\scripts\Setup.ps1
 $ErrorActionPreference = "Stop"
 
 $GitRoot = (Resolve-Path (&git -C $PSScriptRoot rev-parse --show-toplevel)).Path
+$SfsClientRoot = (Resolve-Path (Join-Path $PSScriptRoot ".." )).Path
 
 function Update-Env {
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
@@ -121,7 +122,16 @@ function Set-GitHooks {
     $HookDestDir = Join-Path $GitRoot "\.git\hooks" -Resolve
     $GitHooks = @{"pre-commit-wrapper.sh" = "pre-commit" }
     foreach ($i in $GitHooks.GetEnumerator()) {
-        $HookSrc = Join-Path $GitRoot $i.Name -Resolve
+        $HookSrc = Join-Path $SfsClientRoot $i.Name
+        if (-not (Test-Path $HookSrc)) {
+            $HookSrc = Join-Path $GitRoot $i.Name
+        }
+        if (-not (Test-Path $HookSrc)) {
+            Write-Warning "Skipping git hook '$($i.Value)' because '$($i.Name)' was not found."
+            continue
+        }
+
+        $HookSrc = Resolve-Path $HookSrc
         $HookDest = Join-Path $HookDestDir $i.Value
 
         # If the destination doesn't exist or is different than the one in the source, we'll copy it over.
