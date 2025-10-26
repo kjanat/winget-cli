@@ -313,6 +313,34 @@ namespace AppInstaller::CLI::Workflow
 
             table.Complete();
         }
+
+        void OutputInstalledPackagesJson(Execution::Context& context, const std::vector<InstalledPackagesTableLine>& lines, Json::Value& packagesArray)
+        {
+            for (const auto& line : lines)
+            {
+                Json::Value package;
+                package["name"] = Utility::ConvertToUTF8(line.Name);
+                package["id"] = Utility::ConvertToUTF8(line.Id);
+                package["installedVersion"] = Utility::ConvertToUTF8(line.InstalledVersion);
+                package["availableVersion"] = Utility::ConvertToUTF8(line.AvailableVersion);
+                package["source"] = Utility::ConvertToUTF8(line.Source);
+                packagesArray.append(package);
+            }
+        }
+
+        void OutputInstalledPackagesXml(Execution::Context& context, const std::vector<InstalledPackagesTableLine>& lines)
+        {
+            for (const auto& line : lines)
+            {
+                context.Reporter.Info() << "  <package>" << std::endl;
+                context.Reporter.Info() << "    <name>" << Utility::ConvertToUTF8(line.Name) << "</name>" << std::endl;
+                context.Reporter.Info() << "    <id>" << Utility::ConvertToUTF8(line.Id) << "</id>" << std::endl;
+                context.Reporter.Info() << "    <installedVersion>" << Utility::ConvertToUTF8(line.InstalledVersion) << "</installedVersion>" << std::endl;
+                context.Reporter.Info() << "    <availableVersion>" << Utility::ConvertToUTF8(line.AvailableVersion) << "</availableVersion>" << std::endl;
+                context.Reporter.Info() << "    <source>" << Utility::ConvertToUTF8(line.Source) << "</source>" << std::endl;
+                context.Reporter.Info() << "  </package>" << std::endl;
+            }
+        }
     }
 
     bool WorkflowTask::operator==(const WorkflowTask& other) const
@@ -1143,49 +1171,125 @@ namespace AppInstaller::CLI::Workflow
             }
         }
 
-        OutputInstalledPackagesTable(context, lines);
+        OutputFormat format = GetOutputFormatFromContext(context);
 
-        if (lines.empty())
+        if (format == OutputFormat::Json)
         {
-            context.Reporter.Info() << Resource::String::NoInstalledPackageFound << std::endl;
+            // JSON output
+            Json::Value root;
+            Json::Value packages(Json::arrayValue);
+
+            OutputInstalledPackagesJson(context, lines, packages);
+
+            root["packages"] = packages;
+            root["truncated"] = searchResult.Truncated;
+
+            if (m_onlyShowUpgrades)
+            {
+                root["availableUpgrades"] = availableUpgradesCount;
+                root["packagesWithUnknownVersionSkipped"] = packagesWithUnknownVersionSkipped;
+                root["packagesWithUserPinsSkipped"] = packagesWithUserPinsSkipped;
+            }
+
+            if (!linesForExplicitUpgrade.empty())
+            {
+                Json::Value explicitUpgrade(Json::arrayValue);
+                OutputInstalledPackagesJson(context, linesForExplicitUpgrade, explicitUpgrade);
+                root["packagesRequiringExplicitUpgrade"] = explicitUpgrade;
+            }
+
+            if (!linesForPins.empty())
+            {
+                Json::Value pinnedPackages(Json::arrayValue);
+                OutputInstalledPackagesJson(context, linesForPins, pinnedPackages);
+                root["packagesBlockedByPin"] = pinnedPackages;
+            }
+
+            Json::StreamWriterBuilder builder;
+            builder["indentation"] = "  ";
+            std::string output = Json::writeString(builder, root);
+            context.Reporter.Info() << output << std::endl;
+        }
+        else if (format == OutputFormat::Xml)
+        {
+            // XML output
+            context.Reporter.Info() << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << std::endl;
+            context.Reporter.Info() << "<installedPackages>" << std::endl;
+
+            OutputInstalledPackagesXml(context, lines);
+
+            context.Reporter.Info() << "  <truncated>" << (searchResult.Truncated ? "true" : "false") << "</truncated>" << std::endl;
+
+            if (m_onlyShowUpgrades)
+            {
+                context.Reporter.Info() << "  <availableUpgrades>" << availableUpgradesCount << "</availableUpgrades>" << std::endl;
+                context.Reporter.Info() << "  <packagesWithUnknownVersionSkipped>" << packagesWithUnknownVersionSkipped << "</packagesWithUnknownVersionSkipped>" << std::endl;
+                context.Reporter.Info() << "  <packagesWithUserPinsSkipped>" << packagesWithUserPinsSkipped << "</packagesWithUserPinsSkipped>" << std::endl;
+            }
+
+            if (!linesForExplicitUpgrade.empty())
+            {
+                context.Reporter.Info() << "  <packagesRequiringExplicitUpgrade>" << std::endl;
+                OutputInstalledPackagesXml(context, linesForExplicitUpgrade);
+                context.Reporter.Info() << "  </packagesRequiringExplicitUpgrade>" << std::endl;
+            }
+
+            if (!linesForPins.empty())
+            {
+                context.Reporter.Info() << "  <packagesBlockedByPin>" << std::endl;
+                OutputInstalledPackagesXml(context, linesForPins);
+                context.Reporter.Info() << "  </packagesBlockedByPin>" << std::endl;
+            }
+
+            context.Reporter.Info() << "</installedPackages>" << std::endl;
         }
         else
         {
-            if (searchResult.Truncated)
+            // Default text output
+            OutputInstalledPackagesTable(context, lines);
+
+            if (lines.empty())
             {
-                context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+                context.Reporter.Info() << Resource::String::NoInstalledPackageFound << std::endl;
+            }
+            else
+            {
+                if (searchResult.Truncated)
+                {
+                    context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+                }
+
+                if (m_onlyShowUpgrades)
+                {
+                    context.Reporter.Info() << Resource::String::AvailableUpgrades(availableUpgradesCount) << std::endl;
+                }
+            }
+
+            if (!linesForExplicitUpgrade.empty())
+            {
+                context.Reporter.Info() << std::endl << Resource::String::UpgradeAvailableForPinned << std::endl;
+                OutputInstalledPackagesTable(context, linesForExplicitUpgrade);
+            }
+
+            if (!linesForPins.empty())
+            {
+                context.Reporter.Info() << std::endl << Resource::String::UpgradeBlockedByPinCount(linesForPins.size()) << std::endl;
+                OutputInstalledPackagesTable(context, linesForPins);
             }
 
             if (m_onlyShowUpgrades)
             {
-                context.Reporter.Info() << Resource::String::AvailableUpgrades(availableUpgradesCount) << std::endl;
-            }
-        }
+                if (packagesWithUnknownVersionSkipped > 0)
+                {
+                    AICLI_LOG(CLI, Info, << packagesWithUnknownVersionSkipped << " package(s) skipped due to unknown installed version");
+                    context.Reporter.Info() << Resource::String::UpgradeUnknownVersionCount(packagesWithUnknownVersionSkipped) << std::endl;
+                }
 
-        if (!linesForExplicitUpgrade.empty())
-        {
-            context.Reporter.Info() << std::endl << Resource::String::UpgradeAvailableForPinned << std::endl;
-            OutputInstalledPackagesTable(context, linesForExplicitUpgrade);
-        }
-
-        if (!linesForPins.empty())
-        {
-            context.Reporter.Info() << std::endl << Resource::String::UpgradeBlockedByPinCount(linesForPins.size()) << std::endl;
-            OutputInstalledPackagesTable(context, linesForPins);
-        }
-
-        if (m_onlyShowUpgrades)
-        {
-            if (packagesWithUnknownVersionSkipped > 0)
-            {
-                AICLI_LOG(CLI, Info, << packagesWithUnknownVersionSkipped << " package(s) skipped due to unknown installed version");
-                context.Reporter.Info() << Resource::String::UpgradeUnknownVersionCount(packagesWithUnknownVersionSkipped) << std::endl;
-            }
-
-            if (packagesWithUserPinsSkipped > 0)
-            {
-                AICLI_LOG(CLI, Info, << packagesWithUserPinsSkipped << " package(s) skipped due to user pins");
-                context.Reporter.Info() << Resource::String::UpgradePinnedByUserCount(packagesWithUserPinsSkipped) << std::endl;
+                if (packagesWithUserPinsSkipped > 0)
+                {
+                    AICLI_LOG(CLI, Info, << packagesWithUserPinsSkipped << " package(s) skipped due to user pins");
+                    context.Reporter.Info() << Resource::String::UpgradePinnedByUserCount(packagesWithUserPinsSkipped) << std::endl;
+                }
             }
         }
     }

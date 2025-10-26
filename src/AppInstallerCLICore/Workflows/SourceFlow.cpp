@@ -3,6 +3,8 @@
 #include "pch.h"
 #include "Resources.h"
 #include "SourceFlow.h"
+#include "OutputFormatter.h"
+#include <json/json.h>
 #include "PromptFlow.h"
 #include "TableOutput.h"
 #include "WorkflowBase.h"
@@ -163,52 +165,128 @@ namespace AppInstaller::CLI::Workflow
     void ListSources(Execution::Context& context)
     {
         const std::vector<Repository::SourceDetails>& sources = context.Get<Data::SourceList>();
+        OutputFormat format = GetOutputFormatFromContext(context);
 
-        if (context.Args.Contains(Args::Type::SourceName))
+        if (format == OutputFormat::Json)
         {
-            // If a source name was specified, list full details of the one and only source.
-            const Repository::SourceDetails& source = sources[0];
+            // JSON output
+            Json::Value root;
+            Json::Value sourcesArray(Json::arrayValue);
 
-            Execution::TableOutput<2> table(context.Reporter, { Resource::String::SourceListField, Resource::String::SourceListValue });
-
-            table.OutputLine({ Resource::LocString(Resource::String::SourceListName), source.Name });
-            table.OutputLine({ Resource::LocString(Resource::String::SourceListType), source.Type });
-            table.OutputLine({ Resource::LocString(Resource::String::SourceListArg), source.Arg });
-            table.OutputLine({ Resource::LocString(Resource::String::SourceListData), source.Data });
-            table.OutputLine({ Resource::LocString(Resource::String::SourceListIdentifier), source.Identifier });
-            table.OutputLine({ Resource::LocString(Resource::String::SourceListTrustLevel), Repository::GetSourceTrustLevelForDisplay(source.TrustLevel)});
-            table.OutputLine({ Resource::LocString(Resource::String::SourceListExplicit), std::string{ Utility::ConvertBoolToString(source.Explicit) }});
-
-            if (source.LastUpdateTime == Utility::ConvertUnixEpochToSystemClock(0))
+            for (const auto& source : sources)
             {
-                table.OutputLine({
-                    Resource::LocString(Resource::String::SourceListUpdated),
-                    Resource::LocString(Resource::String::SourceListUpdatedNever)
-                    });
-            }
-            else
-            {
-                std::ostringstream strstr;
-                strstr << source.LastUpdateTime;
-                table.OutputLine({ Resource::LocString(Resource::String::SourceListUpdated), strstr.str() });
+                Json::Value sourceObj;
+                sourceObj["name"] = source.Name;
+                sourceObj["type"] = source.Type;
+                sourceObj["arg"] = source.Arg;
+                sourceObj["data"] = source.Data;
+                sourceObj["identifier"] = source.Identifier;
+                sourceObj["trustLevel"] = Repository::GetSourceTrustLevelForDisplay(source.TrustLevel);
+                sourceObj["explicit"] = source.Explicit;
+
+                if (source.LastUpdateTime == Utility::ConvertUnixEpochToSystemClock(0))
+                {
+                    sourceObj["updated"] = "never";
+                }
+                else
+                {
+                    std::ostringstream strstr;
+                    strstr << source.LastUpdateTime;
+                    sourceObj["updated"] = strstr.str();
+                }
+
+                sourcesArray.append(sourceObj);
             }
 
-            table.Complete();
+            root["sources"] = sourcesArray;
+
+            Json::StreamWriterBuilder builder;
+            builder["indentation"] = "  ";
+            std::string output = Json::writeString(builder, root);
+            context.Reporter.Info() << output << std::endl;
+        }
+        else if (format == OutputFormat::Xml)
+        {
+            // XML output
+            context.Reporter.Info() << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << std::endl;
+            context.Reporter.Info() << "<sources>" << std::endl;
+
+            for (const auto& source : sources)
+            {
+                context.Reporter.Info() << "  <source>" << std::endl;
+                context.Reporter.Info() << "    <name>" << source.Name << "</name>" << std::endl;
+                context.Reporter.Info() << "    <type>" << source.Type << "</type>" << std::endl;
+                context.Reporter.Info() << "    <arg>" << source.Arg << "</arg>" << std::endl;
+                context.Reporter.Info() << "    <data>" << source.Data << "</data>" << std::endl;
+                context.Reporter.Info() << "    <identifier>" << source.Identifier << "</identifier>" << std::endl;
+                context.Reporter.Info() << "    <trustLevel>" << Repository::GetSourceTrustLevelForDisplay(source.TrustLevel) << "</trustLevel>" << std::endl;
+                context.Reporter.Info() << "    <explicit>" << (source.Explicit ? "true" : "false") << "</explicit>" << std::endl;
+
+                if (source.LastUpdateTime == Utility::ConvertUnixEpochToSystemClock(0))
+                {
+                    context.Reporter.Info() << "    <updated>never</updated>" << std::endl;
+                }
+                else
+                {
+                    std::ostringstream strstr;
+                    strstr << source.LastUpdateTime;
+                    context.Reporter.Info() << "    <updated>" << strstr.str() << "</updated>" << std::endl;
+                }
+
+                context.Reporter.Info() << "  </source>" << std::endl;
+            }
+
+            context.Reporter.Info() << "</sources>" << std::endl;
         }
         else
         {
-            if (sources.empty())
+            // Default text output
+            if (context.Args.Contains(Args::Type::SourceName))
             {
-                context.Reporter.Info() << Resource::String::SourceListNoSources << std::endl;
+                // If a source name was specified, list full details of the one and only source.
+                const Repository::SourceDetails& source = sources[0];
+
+                Execution::TableOutput<2> table(context.Reporter, { Resource::String::SourceListField, Resource::String::SourceListValue });
+
+                table.OutputLine({ Resource::LocString(Resource::String::SourceListName), source.Name });
+                table.OutputLine({ Resource::LocString(Resource::String::SourceListType), source.Type });
+                table.OutputLine({ Resource::LocString(Resource::String::SourceListArg), source.Arg });
+                table.OutputLine({ Resource::LocString(Resource::String::SourceListData), source.Data });
+                table.OutputLine({ Resource::LocString(Resource::String::SourceListIdentifier), source.Identifier });
+                table.OutputLine({ Resource::LocString(Resource::String::SourceListTrustLevel), Repository::GetSourceTrustLevelForDisplay(source.TrustLevel)});
+                table.OutputLine({ Resource::LocString(Resource::String::SourceListExplicit), std::string{ Utility::ConvertBoolToString(source.Explicit) }});
+
+                if (source.LastUpdateTime == Utility::ConvertUnixEpochToSystemClock(0))
+                {
+                    table.OutputLine({
+                        Resource::LocString(Resource::String::SourceListUpdated),
+                        Resource::LocString(Resource::String::SourceListUpdatedNever)
+                        });
+                }
+                else
+                {
+                    std::ostringstream strstr;
+                    strstr << source.LastUpdateTime;
+                    table.OutputLine({ Resource::LocString(Resource::String::SourceListUpdated), strstr.str() });
+                }
+
+                table.Complete();
             }
             else
             {
-                Execution::TableOutput<3> table(context.Reporter, { Resource::String::SourceListName, Resource::String::SourceListArg, Resource::String::SourceListExplicit });
-                for (const auto& source : sources)
+                if (sources.empty())
                 {
-                    table.OutputLine({ source.Name, source.Arg, std::string{ Utility::ConvertBoolToString(source.Explicit) }});
+                    context.Reporter.Info() << Resource::String::SourceListNoSources << std::endl;
                 }
-                table.Complete();
+                else
+                {
+                    Execution::TableOutput<3> table(context.Reporter, { Resource::String::SourceListName, Resource::String::SourceListArg, Resource::String::SourceListExplicit });
+                    for (const auto& source : sources)
+                    {
+                        table.OutputLine({ source.Name, source.Arg, std::string{ Utility::ConvertBoolToString(source.Explicit) }});
+                    }
+                    table.Complete();
+                }
             }
         }
     }
