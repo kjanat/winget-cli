@@ -3414,6 +3414,10 @@ An unlocalized JSON fragment will follow on another line.</comment>
   <data name="FontWinGetSupported" xml:space="preserve">
     <value>WinGet Supported</value>
   </data>
+  <data name="FormatArgumentDescription" xml:space="preserve">
+    <value>Specifies the output format (json, xml)</value>
+    <comment>Description for a command line argument, shown next to it in the help</comment>
+  </data>
   <data name="FontTitle" xml:space="preserve">
     <value>Title</value>
   </data>

@@ -7,6 +7,7 @@
 #include "PromptFlow.h"
 #include "Sixel.h"
 #include "TableOutput.h"
+#include "OutputFormatter.h"
 #include <winget/FileCache.h>
 #include <winget/ExperimentalFeature.h>
 #include <winget/ManifestYamlParser.h>
@@ -15,6 +16,7 @@
 #include <AppInstallerSHA256.h>
 #include <winget/Runtime.h>
 #include <winget/PackageVersionSelection.h>
+#include <json/json.h>
 
 EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 
@@ -776,35 +778,115 @@ namespace AppInstaller::CLI::Workflow
     void ReportSearchResult(Execution::Context& context)
     {
         auto& searchResult = context.Get<Execution::Data::SearchResult>();
+        OutputFormat format = GetOutputFormatFromContext(context);
 
-        bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
-        Execution::TableOutput<5> table(context.Reporter,
+        if (format == OutputFormat::Json)
+        {
+            // JSON output
+            Json::Value root;
+            Json::Value packages(Json::arrayValue);
+
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
             {
-                Resource::String::SearchName,
-                Resource::String::SearchId,
-                Resource::String::SearchVersion,
-                Resource::String::SearchMatch,
-                Resource::String::SearchSource
-            });
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
 
-        for (size_t i = 0; i < searchResult.Matches.size(); ++i)
-        {
-            auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                Json::Value package;
+                package["name"] = Utility::ConvertToUTF8(latestVersion->GetProperty(PackageVersionProperty::Name));
+                package["id"] = Utility::ConvertToUTF8(latestVersion->GetProperty(PackageVersionProperty::Id));
+                package["version"] = Utility::ConvertToUTF8(latestVersion->GetProperty(PackageVersionProperty::Version));
 
-            table.OutputLine({
-                latestVersion->GetProperty(PackageVersionProperty::Name),
-                latestVersion->GetProperty(PackageVersionProperty::Id),
-                latestVersion->GetProperty(PackageVersionProperty::Version),
-                GetMatchCriteriaDescriptor(searchResult.Matches[i]),
-                sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
-                });
+                std::string match = GetMatchCriteriaDescriptor(searchResult.Matches[i]);
+                package["match"] = match;
+
+                if (sourceIsComposite)
+                {
+                    package["source"] = Utility::ConvertToUTF8(latestVersion->GetProperty(PackageVersionProperty::SourceName));
+                }
+                else
+                {
+                    package["source"] = "";
+                }
+
+                packages.append(package);
+            }
+
+            root["packages"] = packages;
+            root["truncated"] = searchResult.Truncated;
+
+            Json::StreamWriterBuilder builder;
+            builder["indentation"] = "  ";
+            std::string output = Json::writeString(builder, root);
+            context.Reporter.Info() << output << std::endl;
         }
-
-        table.Complete();
-
-        if (searchResult.Truncated)
+        else if (format == OutputFormat::Xml)
         {
-            context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+            // XML output
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+
+            context.Reporter.Info() << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << std::endl;
+            context.Reporter.Info() << "<packages>" << std::endl;
+
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
+            {
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+
+                context.Reporter.Info() << "  <package>" << std::endl;
+                context.Reporter.Info() << "    <name>" << Utility::ConvertToUTF8(latestVersion->GetProperty(PackageVersionProperty::Name)) << "</name>" << std::endl;
+                context.Reporter.Info() << "    <id>" << Utility::ConvertToUTF8(latestVersion->GetProperty(PackageVersionProperty::Id)) << "</id>" << std::endl;
+                context.Reporter.Info() << "    <version>" << Utility::ConvertToUTF8(latestVersion->GetProperty(PackageVersionProperty::Version)) << "</version>" << std::endl;
+
+                std::string match = GetMatchCriteriaDescriptor(searchResult.Matches[i]);
+                context.Reporter.Info() << "    <match>" << match << "</match>" << std::endl;
+
+                if (sourceIsComposite)
+                {
+                    context.Reporter.Info() << "    <source>" << Utility::ConvertToUTF8(latestVersion->GetProperty(PackageVersionProperty::SourceName)) << "</source>" << std::endl;
+                }
+                else
+                {
+                    context.Reporter.Info() << "    <source></source>" << std::endl;
+                }
+
+                context.Reporter.Info() << "  </package>" << std::endl;
+            }
+
+            context.Reporter.Info() << "  <truncated>" << (searchResult.Truncated ? "true" : "false") << "</truncated>" << std::endl;
+            context.Reporter.Info() << "</packages>" << std::endl;
+        }
+        else
+        {
+            // Default text output
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+            Execution::TableOutput<5> table(context.Reporter,
+                {
+                    Resource::String::SearchName,
+                    Resource::String::SearchId,
+                    Resource::String::SearchVersion,
+                    Resource::String::SearchMatch,
+                    Resource::String::SearchSource
+                });
+
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
+            {
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+
+                table.OutputLine({
+                    latestVersion->GetProperty(PackageVersionProperty::Name),
+                    latestVersion->GetProperty(PackageVersionProperty::Id),
+                    latestVersion->GetProperty(PackageVersionProperty::Version),
+                    GetMatchCriteriaDescriptor(searchResult.Matches[i]),
+                    sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
+                    });
+            }
+
+            table.Complete();
+
+            if (searchResult.Truncated)
+            {
+                context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+            }
         }
     }
 

@@ -12,6 +12,8 @@ namespace AppInstaller::CLI
         // and a link to the spec.
         FeaturesCommand(std::string_view parent) : Command("features", parent) {}
 
+        std::vector<Argument> GetArguments() const override;
+
         virtual Resource::LocString ShortDescription() const override;
         virtual Resource::LocString LongDescription() const override;
 

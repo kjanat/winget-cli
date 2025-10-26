@@ -10,6 +10,13 @@ namespace AppInstaller::CLI
     using namespace Utility::literals;
     using namespace AppInstaller::Settings;
 
+    std::vector<Argument> FeaturesCommand::GetArguments() const
+    {
+        return {
+            Argument::ForType(Execution::Args::Type::OutputFormat),
+        };
+    }
+
     Resource::LocString FeaturesCommand::ShortDescription() const
     {
         return { Resource::String::FeaturesCommandShortDescription };

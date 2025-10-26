@@ -49,6 +49,7 @@ namespace AppInstaller::CLI
             Argument::ForType(Args::Type::Channel),
             Argument::ForType(Args::Type::Source),          // -s
             Argument::ForType(Args::Type::Exact),           // -e
+            Argument::ForType(Args::Type::OutputFormat),
             Argument::ForType(Args::Type::Interactive),     // -i
             Argument::ForType(Args::Type::Silent),          // -h
             Argument::ForType(Args::Type::Purge),

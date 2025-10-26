@@ -327,6 +327,7 @@ namespace AppInstaller::CLI::Resource
         WINGET_DEFINE_RESOURCE_STRINGID(FontValidationFailed);
         WINGET_DEFINE_RESOURCE_STRINGID(FontVersion);
         WINGET_DEFINE_RESOURCE_STRINGID(FontWinGetSupported);
+        WINGET_DEFINE_RESOURCE_STRINGID(FormatArgumentDescription);
         WINGET_DEFINE_RESOURCE_STRINGID(ForceArgumentDescription);
         WINGET_DEFINE_RESOURCE_STRINGID(GatedVersionArgumentDescription);
         WINGET_DEFINE_RESOURCE_STRINGID(GetManifestResultVersionNotFound);
