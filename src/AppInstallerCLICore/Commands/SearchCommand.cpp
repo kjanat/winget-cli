@@ -60,6 +60,13 @@ namespace AppInstaller::CLI
         case Execution::Args::Type::Tag:
         case Execution::Args::Type::Command:
         case Execution::Args::Type::Source:
+        case Execution::Args::Type::Count:
+        case Execution::Args::Type::Exact:
+        case Execution::Args::Type::CustomHeader:
+        case Execution::Args::Type::AuthenticationMode:
+        case Execution::Args::Type::AuthenticationAccount:
+        case Execution::Args::Type::AcceptSourceAgreements:
+        case Execution::Args::Type::ListVersions:
             context <<
             Workflow::CompleteWithSingleSemanticsForValue(valueType);
             break;
@@ -67,10 +74,6 @@ namespace AppInstaller::CLI
             // Provide tab completion for format values
             context.Reporter.Completion() << "json"_liv << std::endl;
             context.Reporter.Completion() << "table"_liv << std::endl;
-            break;
-        default:
-            context <<
-            Workflow::CompleteWithSingleSemanticsForValue(valueType);
             break;
         }
     }

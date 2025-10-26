@@ -210,7 +210,9 @@ namespace AppInstaller::CLI::Workflow
                 root["Installer"] = installerInfo;
             }
 
-            context.Reporter.Info() << root << std::endl;
+            Json::StreamWriterBuilder writerBuilder;
+            writerBuilder.settings_["indentation"] = "";
+            context.Reporter.Info() << Json::writeString(writerBuilder, root) << std::endl;
         }
         else
         {

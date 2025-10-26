@@ -324,7 +324,9 @@ namespace AppInstaller::CLI::Workflow
                     packages.append(package);
                 }
 
-                context.Reporter.Info() << packages << std::endl;
+                Json::StreamWriterBuilder writerBuilder;
+                writerBuilder.settings_["indentation"] = "";
+                context.Reporter.Info() << Json::writeString(writerBuilder, packages) << std::endl;
             }
             else
             {
@@ -850,7 +852,9 @@ namespace AppInstaller::CLI::Workflow
             root["Packages"] = packages;
             root["Truncated"] = searchResult.Truncated;
 
-            context.Reporter.Info() << root << std::endl;
+            Json::StreamWriterBuilder writerBuilder;
+            writerBuilder.settings_["indentation"] = "";
+            context.Reporter.Info() << Json::writeString(writerBuilder, root) << std::endl;
         }
         else
         {
