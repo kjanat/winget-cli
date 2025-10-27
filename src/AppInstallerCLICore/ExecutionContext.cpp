@@ -6,6 +6,7 @@
 #include "COMContext.h"
 #include "Command.h"
 #include "ExecutionContext.h"
+#include "OutputFormatter.h"
 #include "Public/ShutdownMonitoring.h"
 #include <winget/Checkpoint.h>
 #include <winget/Reboot.h>
@@ -130,7 +131,21 @@ namespace AppInstaller::CLI::Execution
         }
 
         // Set visual style
-        if (Args.Contains(Args::Type::NoVT))
+        // Auto-disable VT output and progress bars for structured formats to keep stdout clean
+        bool disableVT = Args.Contains(Args::Type::NoVT);
+        bool isStructuredOutput = false;
+
+        if (Args.Contains(Args::Type::OutputFormat))
+        {
+            auto format = GetOutputFormatFromContext(*this);
+            if (format == OutputFormat::Json || format == OutputFormat::Xml)
+            {
+                disableVT = true;
+                isStructuredOutput = true;
+            }
+        }
+
+        if (disableVT)
         {
             Reporter.SetStyle(VisualStyle::NoVT);
         }
@@ -145,6 +160,14 @@ namespace AppInstaller::CLI::Execution
         else
         {
             Reporter.SetStyle(User().Get<Setting::ProgressBarVisualStyle>());
+        }
+
+        // For structured output (JSON/XML), completely disable progress bars/spinners
+        // by temporarily switching to Json channel mode which disables progress indicators
+        if (isStructuredOutput)
+        {
+            Reporter.SetChannel(Reporter::Channel::Json);
+            Reporter.SetChannel(Reporter::Channel::Output);
         }
     }
 
