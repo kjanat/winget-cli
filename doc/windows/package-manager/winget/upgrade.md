@@ -52,6 +52,7 @@ The options allow you to customize the upgrade experience to meet your needs.
 | **--accept-package-agreements**   | Accept all license agreements for packages.                                                                                 |
 | **--accept-source-agreements**    | Accept all source agreements during source operations.                                                                      |
 | **--header**                      | Optional Windows-Package-Manager REST source HTTP header.                                                                   |
+| **--format**                      | Specifies the output format. Supported formats: json, xml                                                                   |
 | **-r, --recurse, --all**         | Upgrade all installed packages to the latest version if available.                                                           |
 | **--pinned,--include-pinned**    | Upgrade packages even if they have a non-blocking pin.                                                                      |
 | **--uninstall-previous**         | Uninstall the previous version of the package during the upgrade.                                                            |

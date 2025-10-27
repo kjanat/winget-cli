@@ -77,7 +77,14 @@ The **add** sub-command also supports the optional **type** parameter. The **typ
 
 the **list** sub-command enumerates the currently enabled sources. This sub-command also provides details on a specific source.
 
-Usage: `winget source list [-n, --name] <name>`
+Usage: `winget source list [-n, --name] <name> [--format <format>]`
+
+### Options
+
+| Option | Description |
+|--------|-------------|
+| **-n, --name** | Name of the source |
+| **--format** | Specifies the output format. Supported formats: json, xml |
 
 ### list all
 

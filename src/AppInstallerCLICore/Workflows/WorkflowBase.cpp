@@ -1691,13 +1691,40 @@ namespace AppInstaller::CLI::Workflow
     void ShowAppVersions(Execution::Context& context)
     {
         auto versions = GetAllAvailableVersions(context.Get<Execution::Data::Package>())->GetVersionKeys();
+        auto outputFormat = GetOutputFormatFromContext(context);
 
-        Execution::TableOutput<2> table(context.Reporter, { Resource::String::ShowVersion, Resource::String::ShowChannel });
-        for (const auto& version : versions)
+        if (outputFormat == OutputFormat::Json)
         {
-            table.OutputLine({ version.Version, version.Channel });
+            JsonOutputFormatter formatter;
+            formatter.StartOutput();
+            for (const auto& version : versions)
+            {
+                // Use AddListEntry to store version info
+                formatter.AddListEntry(static_cast<std::string>(version.Version), "", static_cast<std::string>(version.Channel), "", "");
+            }
+            formatter.EndOutput();
+            context.Reporter.Info() << formatter.GetOutput() << std::endl;
         }
-        table.Complete();
+        else if (outputFormat == OutputFormat::Xml)
+        {
+            XmlOutputFormatter formatter;
+            formatter.StartOutput();
+            for (const auto& version : versions)
+            {
+                formatter.AddListEntry(static_cast<std::string>(version.Version), "", static_cast<std::string>(version.Channel), "", "");
+            }
+            formatter.EndOutput();
+            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+        }
+        else
+        {
+            Execution::TableOutput<2> table(context.Reporter, { Resource::String::ShowVersion, Resource::String::ShowChannel });
+            for (const auto& version : versions)
+            {
+                table.OutputLine({ version.Version, version.Channel });
+            }
+            table.Complete();
+        }
     }
 }
 

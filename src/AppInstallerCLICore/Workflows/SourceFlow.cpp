@@ -6,6 +6,7 @@
 #include "PromptFlow.h"
 #include "TableOutput.h"
 #include "WorkflowBase.h"
+#include "OutputFormatter.h"
 
 namespace AppInstaller::CLI::Workflow
 {
@@ -163,8 +164,59 @@ namespace AppInstaller::CLI::Workflow
     void ListSources(Execution::Context& context)
     {
         const std::vector<Repository::SourceDetails>& sources = context.Get<Data::SourceList>();
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
 
-        if (context.Args.Contains(Args::Type::SourceName))
+        if (outputFormat == Execution::OutputFormat::Json)
+        {
+            Execution::JsonOutputFormatter formatter;
+            formatter.StartOutput();
+
+            for (const auto& source : sources)
+            {
+                std::string updated;
+                if (source.LastUpdateTime == Utility::ConvertUnixEpochToSystemClock(0))
+                {
+                    updated = "never";
+                }
+                else
+                {
+                    std::ostringstream strstr;
+                    strstr << source.LastUpdateTime;
+                    updated = strstr.str();
+                }
+
+                formatter.AddSourceEntry(source.Name, source.Type, source.Arg, source.Data, updated);
+            }
+
+            formatter.EndOutput();
+            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+        }
+        else if (outputFormat == Execution::OutputFormat::Xml)
+        {
+            Execution::XmlOutputFormatter formatter;
+            formatter.StartOutput();
+
+            for (const auto& source : sources)
+            {
+                std::string updated;
+                if (source.LastUpdateTime == Utility::ConvertUnixEpochToSystemClock(0))
+                {
+                    updated = "never";
+                }
+                else
+                {
+                    std::ostringstream strstr;
+                    strstr << source.LastUpdateTime;
+                    updated = strstr.str();
+                }
+
+                formatter.AddSourceEntry(source.Name, source.Type, source.Arg, source.Data, updated);
+            }
+
+            formatter.EndOutput();
+            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+        }
+        else if (context.Args.Contains(Args::Type::SourceName))
         {
             // If a source name was specified, list full details of the one and only source.
             const Repository::SourceDetails& source = sources[0];

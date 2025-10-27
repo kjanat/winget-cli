@@ -1,3 +1,3 @@
 ## New in v1.28
 
-<!-- Nothing yet! -->
+- Added `--format` argument for structured output (JSON/XML) to search, list, upgrade, and features commands

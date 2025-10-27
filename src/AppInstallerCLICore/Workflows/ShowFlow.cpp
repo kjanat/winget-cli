@@ -5,6 +5,7 @@
 #include "ShowFlow.h"
 #include <winget/ManifestComparator.h>
 #include "TableOutput.h"
+#include "OutputFormatter.h"
 
 using namespace AppInstaller::Repository;
 using namespace AppInstaller::CLI;
@@ -116,9 +117,171 @@ namespace AppInstaller::CLI::Workflow
         
     }
 
+    void OutputManifestAsStructured(Execution::Context& context, Execution::OutputFormat format)
+    {
+        const auto& manifest = context.Get<Execution::Data::Manifest>();
+        const auto& installer = context.Get<Execution::Data::Installer>();
+
+        if (format == Execution::OutputFormat::Json)
+        {
+            Json::Value root(Json::objectValue);
+
+            // Package info
+            root["id"] = manifest.Id;
+            root["name"] = manifest.DefaultLocalization.Get<Manifest::Localization::PackageName>();
+            root["version"] = manifest.Version;
+            root["publisher"] = static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>());
+
+            auto description = manifest.CurrentLocalization.Get<Manifest::Localization::Description>();
+            if (!description.empty())
+            {
+                root["description"] = static_cast<std::string>(description);
+            }
+
+            auto packageUrl = manifest.CurrentLocalization.Get<Manifest::Localization::PackageUrl>();
+            if (!packageUrl.empty())
+            {
+                root["packageUrl"] = static_cast<std::string>(packageUrl);
+            }
+
+            auto license = manifest.CurrentLocalization.Get<Manifest::Localization::License>();
+            if (!license.empty())
+            {
+                root["license"] = static_cast<std::string>(license);
+            }
+
+            auto moniker = manifest.Moniker;
+            if (!moniker.empty())
+            {
+                root["moniker"] = static_cast<std::string>(moniker);
+            }
+
+            const auto& tags = manifest.CurrentLocalization.Get<Manifest::Localization::Tags>();
+            if (!tags.empty())
+            {
+                Json::Value tagsArray(Json::arrayValue);
+                for (const auto& tag : tags)
+                {
+                    tagsArray.append(static_cast<std::string>(tag));
+                }
+                root["tags"] = tagsArray;
+            }
+
+            // Installer info
+            if (installer)
+            {
+                Json::Value installerObj(Json::objectValue);
+                installerObj["type"] = Manifest::InstallerTypeToString(installer->EffectiveInstallerType());
+
+                if (!installer->Url.empty())
+                {
+                    installerObj["url"] = installer->Url;
+                }
+
+                if (!installer->Sha256.empty())
+                {
+                    installerObj["sha256"] = Utility::SHA256::ConvertToString(installer->Sha256);
+                }
+
+                root["installer"] = installerObj;
+            }
+
+            Json::StreamWriterBuilder builder;
+            builder["indentation"] = "  ";
+            context.Reporter.Info() << Json::writeString(builder, root) << std::endl;
+        }
+        else if (format == Execution::OutputFormat::Xml)
+        {
+            std::ostringstream output;
+            output << "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<package>\n";
+
+            auto xmlEscape = [](const std::string& str) -> std::string {
+                std::string result;
+                for (char c : str) {
+                    switch (c) {
+                        case '<': result += "&lt;"; break;
+                        case '>': result += "&gt;"; break;
+                        case '&': result += "&amp;"; break;
+                        case '"': result += "&quot;"; break;
+                        case '\'': result += "&apos;"; break;
+                        default: result += c;
+                    }
+                }
+                return result;
+            };
+
+            output << "  <id>" << xmlEscape(manifest.Id) << "</id>\n";
+            output << "  <name>" << xmlEscape(static_cast<std::string>(manifest.DefaultLocalization.Get<Manifest::Localization::PackageName>())) << "</name>\n";
+            output << "  <version>" << xmlEscape(manifest.Version) << "</version>\n";
+            output << "  <publisher>" << xmlEscape(static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>())) << "</publisher>\n";
+
+            auto description = manifest.CurrentLocalization.Get<Manifest::Localization::Description>();
+            if (!description.empty())
+            {
+                output << "  <description>" << xmlEscape(static_cast<std::string>(description)) << "</description>\n";
+            }
+
+            auto packageUrl = manifest.CurrentLocalization.Get<Manifest::Localization::PackageUrl>();
+            if (!packageUrl.empty())
+            {
+                output << "  <packageUrl>" << xmlEscape(static_cast<std::string>(packageUrl)) << "</packageUrl>\n";
+            }
+
+            auto license = manifest.CurrentLocalization.Get<Manifest::Localization::License>();
+            if (!license.empty())
+            {
+                output << "  <license>" << xmlEscape(static_cast<std::string>(license)) << "</license>\n";
+            }
+
+            auto moniker = manifest.Moniker;
+            if (!moniker.empty())
+            {
+                output << "  <moniker>" << xmlEscape(static_cast<std::string>(moniker)) << "</moniker>\n";
+            }
+
+            const auto& tags = manifest.CurrentLocalization.Get<Manifest::Localization::Tags>();
+            if (!tags.empty())
+            {
+                output << "  <tags>\n";
+                for (const auto& tag : tags)
+                {
+                    output << "    <tag>" << xmlEscape(static_cast<std::string>(tag)) << "</tag>\n";
+                }
+                output << "  </tags>\n";
+            }
+
+            if (installer)
+            {
+                output << "  <installer>\n";
+                output << "    <type>" << xmlEscape(Manifest::InstallerTypeToString(installer->EffectiveInstallerType())) << "</type>\n";
+                if (!installer->Url.empty())
+                {
+                    output << "    <url>" << xmlEscape(installer->Url) << "</url>\n";
+                }
+                if (!installer->Sha256.empty())
+                {
+                    output << "    <sha256>" << xmlEscape(Utility::SHA256::ConvertToString(installer->Sha256)) << "</sha256>\n";
+                }
+                output << "  </installer>\n";
+            }
+
+            output << "</package>\n";
+            context.Reporter.Info() << output.str();
+        }
+    }
+
     void ShowManifestInfo(Execution::Context& context)
     {
-        context << ShowPackageInfo << ShowInstallerInfo;
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
+
+        if (outputFormat == Execution::OutputFormat::Json || outputFormat == Execution::OutputFormat::Xml)
+        {
+            OutputManifestAsStructured(context, outputFormat);
+        }
+        else
+        {
+            context << ShowPackageInfo << ShowInstallerInfo;
+        }
     }
 
     void ShowPackageInfo(Execution::Context& context)
