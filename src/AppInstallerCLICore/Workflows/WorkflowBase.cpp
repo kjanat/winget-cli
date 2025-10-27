@@ -630,7 +630,7 @@ namespace AppInstaller::CLI::Workflow
         {
             context.Add<Execution::Data::DependencySource>(std::move(source));
         }
-        else 
+        else
         {
             context.Add<Execution::Data::Source>(std::move(source));
         }
@@ -816,6 +816,10 @@ namespace AppInstaller::CLI::Workflow
             for (size_t i = 0; i < searchResult.Matches.size(); ++i)
             {
                 auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                if (!latestVersion)
+                {
+                    continue;
+                }
                 formatter.AddPackageEntry(
                     static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Name)),
                     static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Id)),
@@ -827,7 +831,7 @@ namespace AppInstaller::CLI::Workflow
 
             formatter.SetTruncated(searchResult.Truncated);
             formatter.EndOutput();
-            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+            context.Reporter.Json() << formatter.GetOutput() << std::endl;
         }
         else if (outputFormat == Execution::OutputFormat::Xml)
         {
@@ -838,6 +842,10 @@ namespace AppInstaller::CLI::Workflow
             for (size_t i = 0; i < searchResult.Matches.size(); ++i)
             {
                 auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                if (!latestVersion)
+                {
+                    continue;
+                }
                 formatter.AddPackageEntry(
                     static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Name)),
                     static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Id)),
@@ -849,7 +857,7 @@ namespace AppInstaller::CLI::Workflow
 
             formatter.SetTruncated(searchResult.Truncated);
             formatter.EndOutput();
-            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+            context.Reporter.Json() << formatter.GetOutput() << std::endl;
         }
         else
         {
@@ -867,6 +875,10 @@ namespace AppInstaller::CLI::Workflow
             for (size_t i = 0; i < searchResult.Matches.size(); ++i)
             {
                 auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                if (!latestVersion)
+                {
+                    continue;
+                }
 
                 table.OutputLine({
                     latestVersion->GetProperty(PackageVersionProperty::Name),
@@ -1152,7 +1164,7 @@ namespace AppInstaller::CLI::Workflow
 
             formatter.SetTruncated(searchResult.Truncated);
             formatter.EndOutput();
-            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+            context.Reporter.Json() << formatter.GetOutput() << std::endl;
         }
         else if (outputFormat == Execution::OutputFormat::Xml)
         {
@@ -1166,7 +1178,7 @@ namespace AppInstaller::CLI::Workflow
 
             formatter.SetTruncated(searchResult.Truncated);
             formatter.EndOutput();
-            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+            context.Reporter.Json() << formatter.GetOutput() << std::endl;
         }
         else
         {
@@ -1228,7 +1240,7 @@ namespace AppInstaller::CLI::Workflow
         if (searchResult.Matches.size() == 0)
         {
             Logging::Telemetry().LogNoAppMatch();
-            
+
             switch (m_operationType)
             {
                 // These search purposes require a package to be found in the Installed Packages
@@ -1634,7 +1646,7 @@ namespace AppInstaller::CLI::Workflow
         // If we cannot find a package using PackageFamilyName or ProductId, try manifest Id and Name pair
         SearchRequest searchRequest;
         searchRequest.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::Id, MatchType::CaseInsensitive, manifest.Id));
-        
+
         // In case there are same Ids from different sources, filter the result using package name
         for (const auto& localization : manifest.Localizations)
         {
@@ -1699,11 +1711,11 @@ namespace AppInstaller::CLI::Workflow
             formatter.StartOutput();
             for (const auto& version : versions)
             {
-                // Use AddListEntry to store version info
-                formatter.AddListEntry(static_cast<std::string>(version.Version), "", static_cast<std::string>(version.Channel), "", "");
+                // Store version in "version" and channel in "availableVersion" (temporary until a dedicated schema exists)
+                formatter.AddListEntry("", "", static_cast<std::string>(version.Version), static_cast<std::string>(version.Channel), "");
             }
             formatter.EndOutput();
-            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+            context.Reporter.Json() << formatter.GetOutput() << std::endl;
         }
         else if (outputFormat == Execution::OutputFormat::Xml)
         {
@@ -1711,10 +1723,10 @@ namespace AppInstaller::CLI::Workflow
             formatter.StartOutput();
             for (const auto& version : versions)
             {
-                formatter.AddListEntry(static_cast<std::string>(version.Version), "", static_cast<std::string>(version.Channel), "", "");
+                formatter.AddListEntry("", "", static_cast<std::string>(version.Version), static_cast<std::string>(version.Channel), "");
             }
             formatter.EndOutput();
-            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+            context.Reporter.Json() << formatter.GetOutput() << std::endl;
         }
         else
         {

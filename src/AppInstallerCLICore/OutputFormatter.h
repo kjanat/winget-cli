@@ -1,14 +1,16 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 #pragma once
-#include "ExecutionContext.h"
 #include <json/json.h>
+#include <string_view>
 #include <sstream>
 #include <string>
 #include <vector>
 
 namespace AppInstaller::CLI::Execution
 {
+    // Forward declaration to reduce header coupling
+    struct Context;
     // Output format types
     enum class OutputFormat
     {

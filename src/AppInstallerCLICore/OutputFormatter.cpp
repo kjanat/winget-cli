@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "OutputFormatter.h"
+#include "ExecutionContext.h"
 #include "Resources.h"
 #include "Command.h"
 #include <algorithm>
