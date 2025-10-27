@@ -127,8 +127,8 @@ namespace AppInstaller::CLI::Workflow
             Json::Value root(Json::objectValue);
 
             // Package info
-            root["id"] = manifest.Id;
-            root["name"] = manifest.DefaultLocalization.Get<Manifest::Localization::PackageName>();
+            root["id"] = static_cast<std::string>(manifest.Id);
+            root["name"] = static_cast<std::string>(manifest.DefaultLocalization.Get<Manifest::Localization::PackageName>());
             root["version"] = manifest.Version;
             root["publisher"] = static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>());
 
@@ -171,7 +171,8 @@ namespace AppInstaller::CLI::Workflow
             if (installer)
             {
                 Json::Value installerObj(Json::objectValue);
-                installerObj["type"] = Manifest::InstallerTypeToString(installer->EffectiveInstallerType());
+                auto typeStr = Manifest::InstallerTypeToString(installer->EffectiveInstallerType());
+                installerObj["type"] = std::string(typeStr.data(), typeStr.size());
 
                 if (!installer->Url.empty())
                 {
@@ -210,7 +211,7 @@ namespace AppInstaller::CLI::Workflow
                 return result;
             };
 
-            output << "  <id>" << xmlEscape(manifest.Id) << "</id>\n";
+            output << "  <id>" << xmlEscape(static_cast<std::string>(manifest.Id)) << "</id>\n";
             output << "  <name>" << xmlEscape(static_cast<std::string>(manifest.DefaultLocalization.Get<Manifest::Localization::PackageName>())) << "</name>\n";
             output << "  <version>" << xmlEscape(manifest.Version) << "</version>\n";
             output << "  <publisher>" << xmlEscape(static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>())) << "</publisher>\n";
@@ -253,7 +254,8 @@ namespace AppInstaller::CLI::Workflow
             if (installer)
             {
                 output << "  <installer>\n";
-                output << "    <type>" << xmlEscape(Manifest::InstallerTypeToString(installer->EffectiveInstallerType())) << "</type>\n";
+                auto typeStr = Manifest::InstallerTypeToString(installer->EffectiveInstallerType());
+                output << "    <type>" << xmlEscape(std::string(typeStr.data(), typeStr.size())) << "</type>\n";
                 if (!installer->Url.empty())
                 {
                     output << "    <url>" << xmlEscape(installer->Url) << "</url>\n";
@@ -342,11 +344,13 @@ namespace AppInstaller::CLI::Workflow
             Manifest::InstallerTypeEnum effectiveInstallerType = installer->EffectiveInstallerType();
             Manifest::InstallerTypeEnum baseInstallerType = installer->BaseInstallerType;
             std::string shownInstallerType;
-            shownInstallerType = Manifest::InstallerTypeToString(effectiveInstallerType);
+            auto typeStr = Manifest::InstallerTypeToString(effectiveInstallerType);
+            shownInstallerType = std::string(typeStr.data(), typeStr.size());
             if (effectiveInstallerType != baseInstallerType)
             {
                 shownInstallerType += " ("_liv;
-                shownInstallerType += Manifest::InstallerTypeToString(baseInstallerType);
+                auto baseTypeStr = Manifest::InstallerTypeToString(baseInstallerType);
+                shownInstallerType += std::string(baseTypeStr.data(), baseTypeStr.size());
                 shownInstallerType += ')';
             }
             ShowSingleLineField(info, Resource::String::ShowLabelInstallerType, shownInstallerType, true);

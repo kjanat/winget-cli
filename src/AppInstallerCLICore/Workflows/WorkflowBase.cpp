@@ -1693,9 +1693,9 @@ namespace AppInstaller::CLI::Workflow
         auto versions = GetAllAvailableVersions(context.Get<Execution::Data::Package>())->GetVersionKeys();
         auto outputFormat = GetOutputFormatFromContext(context);
 
-        if (outputFormat == OutputFormat::Json)
+        if (outputFormat == Execution::OutputFormat::Json)
         {
-            JsonOutputFormatter formatter;
+            Execution::JsonOutputFormatter formatter;
             formatter.StartOutput();
             for (const auto& version : versions)
             {
@@ -1705,9 +1705,9 @@ namespace AppInstaller::CLI::Workflow
             formatter.EndOutput();
             context.Reporter.Info() << formatter.GetOutput() << std::endl;
         }
-        else if (outputFormat == OutputFormat::Xml)
+        else if (outputFormat == Execution::OutputFormat::Xml)
         {
-            XmlOutputFormatter formatter;
+            Execution::XmlOutputFormatter formatter;
             formatter.StartOutput();
             for (const auto& version : versions)
             {
