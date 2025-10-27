@@ -23,3 +23,46 @@ Notice above that the status of each feature is listed.  If the feature is **dis
 To enabled any disabled features, go to **settings** and enable the feature.
 
 Note: features may be managed by group policy. You can use the **winget --info** command to view any policies in effect on your system.
+
+## Options
+
+The following options are available.
+
+| Option  | Description |
+|--------------|-------------|
+| **--format** | Specifies the output format (json, xml). |
+| **-?, --help** | Gets additional help on this command. |
+
+## Output formats
+
+The **features** command supports structured output formats for automation and scripting.
+
+### JSON output
+
+Use `--format json` to output features in JSON format:
+
+```powershell
+winget features --format json
+```
+
+Output structure:
+```json
+{
+  "features": [
+    {
+      "name": "Direct MSI Install",
+      "status": "enabled",
+      "property": "directMSI",
+      "link": "https://aka.ms/winget-settings"
+    }
+  ]
+}
+```
+
+### XML output
+
+Use `--format xml` to output features in XML format:
+
+```powershell
+winget features --format xml
+```

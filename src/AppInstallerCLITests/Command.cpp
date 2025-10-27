@@ -5,6 +5,7 @@
 #include <Command.h>
 #include <AppInstallerStrings.h>
 #include <Commands/RootCommand.h>
+#include <Workflows/OutputFormatter.h>
 
 using namespace std::string_literals;
 using namespace std::string_view_literals;
@@ -664,4 +665,47 @@ TEST_CASE("ParseArguments_PositionalWithTooManyValues", "[command]")
     Invocation inv{ std::vector<std::string>(values) };
 
     REQUIRE_COMMAND_EXCEPTION(command.ParseArguments(inv, args), CLI::Resource::String::ExtraPositionalError(Utility::LocIndView{ values.back() }));
+}
+
+TEST_CASE("OutputFormat_ParseValidFormats", "[command][format]")
+{
+    using namespace AppInstaller::CLI::Workflow;
+
+    REQUIRE(ParseOutputFormat("json") == OutputFormat::Json);
+    REQUIRE(ParseOutputFormat("JSON") == OutputFormat::Json);
+    REQUIRE(ParseOutputFormat("Json") == OutputFormat::Json);
+
+    REQUIRE(ParseOutputFormat("xml") == OutputFormat::Xml);
+    REQUIRE(ParseOutputFormat("XML") == OutputFormat::Xml);
+    REQUIRE(ParseOutputFormat("Xml") == OutputFormat::Xml);
+
+    REQUIRE(ParseOutputFormat("text") == OutputFormat::Text);
+    REQUIRE(ParseOutputFormat("TEXT") == OutputFormat::Text);
+    REQUIRE(ParseOutputFormat("Text") == OutputFormat::Text);
+}
+
+TEST_CASE("OutputFormat_ParseInvalidFormat", "[command][format]")
+{
+    using namespace AppInstaller::CLI::Workflow;
+
+    REQUIRE_THROWS(ParseOutputFormat("invalid"));
+    REQUIRE_THROWS(ParseOutputFormat("yaml"));
+    REQUIRE_THROWS(ParseOutputFormat(""));
+}
+
+TEST_CASE("OutputFormat_ValidateFormats", "[command][format]")
+{
+    using namespace AppInstaller::CLI::Workflow;
+
+    REQUIRE(IsValidOutputFormat("json"));
+    REQUIRE(IsValidOutputFormat("JSON"));
+    REQUIRE(IsValidOutputFormat("xml"));
+    REQUIRE(IsValidOutputFormat("XML"));
+    REQUIRE(IsValidOutputFormat("text"));
+    REQUIRE(IsValidOutputFormat("TEXT"));
+
+    REQUIRE_FALSE(IsValidOutputFormat("invalid"));
+    REQUIRE_FALSE(IsValidOutputFormat("yaml"));
+    REQUIRE_FALSE(IsValidOutputFormat(""));
+    REQUIRE_FALSE(IsValidOutputFormat("jsonxml"));
 }

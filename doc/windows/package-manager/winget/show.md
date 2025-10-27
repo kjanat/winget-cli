@@ -49,6 +49,7 @@ The following options are available.
 | **--locale** | Locale to use (BCP47 format). |
 | **--header** | Optional Windows-Package-Manager REST source HTTP header. |
 | **--accept-source-agreements** | Accept all source agreements during source operations. |
+| **--format** | Specifies the output format (json, xml). |
 | **-?, --help** | Gets additional help on this command. |
 | **--wait** | Prompts the user to press any key before exiting. |
 | **--logs, --open-logs** | Open the default logs location. |
@@ -82,6 +83,28 @@ If a single application is detected, the following data will be displayed.
 | **Type**  | The type of installer. |
 | **Download Url** | The Url of the installer. |
 | **SHA256** | The Sha-256 of the installer.  |
+
+## Output formats
+
+The **show** command supports structured output formats for automation and scripting.
+
+### JSON output
+
+Use `--format json` to output package details in JSON format:
+
+```powershell
+winget show Microsoft.VisualStudioCode --format json
+```
+
+The JSON output includes all package metadata, installer information, tags, and other details in a structured format suitable for parsing.
+
+### XML output
+
+Use `--format xml` to output package details in XML format:
+
+```powershell
+winget show Microsoft.VisualStudioCode --format xml
+```
 
 ## Related topics
 

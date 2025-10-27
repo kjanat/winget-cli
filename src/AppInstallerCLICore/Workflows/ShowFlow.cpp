@@ -5,6 +5,8 @@
 #include "ShowFlow.h"
 #include <winget/ManifestComparator.h>
 #include "TableOutput.h"
+#include "OutputFormatter.h"
+#include <json/json.h>
 
 using namespace AppInstaller::Repository;
 using namespace AppInstaller::CLI;
@@ -118,7 +120,100 @@ namespace AppInstaller::CLI::Workflow
 
     void ShowManifestInfo(Execution::Context& context)
     {
-        context << ShowPackageInfo << ShowInstallerInfo;
+        OutputFormat format = GetOutputFormatFromContext(context);
+
+        if (format == OutputFormat::Json)
+        {
+            // JSON output
+            const auto& manifest = context.Get<Execution::Data::Manifest>();
+            const auto& installer = context.Get<Execution::Data::Installer>();
+            auto description = manifest.CurrentLocalization.Get<Manifest::Localization::Description>();
+
+            Json::Value root;
+
+            // Package information
+            root["version"] = manifest.Version;
+            root["publisher"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>());
+            root["publisherUrl"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::PublisherUrl>());
+            root["publisherSupportUrl"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::PublisherSupportUrl>());
+            root["author"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::Author>());
+            root["moniker"] = manifest.Moniker;
+            root["description"] = Utility::ConvertToUTF8(description.empty() ? manifest.CurrentLocalization.Get<Manifest::Localization::ShortDescription>() : description);
+            root["packageUrl"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::PackageUrl>());
+            root["license"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::License>());
+            root["licenseUrl"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::LicenseUrl>());
+            root["privacyUrl"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::PrivacyUrl>());
+            root["copyright"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::Copyright>());
+            root["copyrightUrl"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::CopyrightUrl>());
+            root["releaseNotes"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::ReleaseNotes>());
+            root["releaseNotesUrl"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::ReleaseNotesUrl>());
+            root["purchaseUrl"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::PurchaseUrl>());
+            root["installationNotes"] = Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::InstallationNotes>());
+
+            // Tags
+            Json::Value tags(Json::arrayValue);
+            for (const auto& tag : manifest.CurrentLocalization.Get<Manifest::Localization::Tags>())
+            {
+                tags.append(Utility::ConvertToUTF8(tag));
+            }
+            root["tags"] = tags;
+
+            // Installer information
+            if (installer)
+            {
+                Json::Value installerObj;
+                Manifest::InstallerTypeEnum effectiveInstallerType = installer->EffectiveInstallerType();
+                installerObj["type"] = Manifest::InstallerTypeToString(effectiveInstallerType);
+                installerObj["locale"] = installer->Locale;
+                installerObj["url"] = installer->Url;
+                installerObj["sha256"] = installer->Sha256.empty() ? "" : Utility::SHA256::ConvertToString(installer->Sha256);
+                installerObj["productId"] = installer->ProductId;
+                installerObj["releaseDate"] = installer->ReleaseDate;
+                installerObj["offlineDistributionSupported"] = !installer->DownloadCommandProhibited;
+                root["installer"] = installerObj;
+            }
+
+            Json::StreamWriterBuilder builder;
+            builder["indentation"] = "  ";
+            std::string output = Json::writeString(builder, root);
+            context.Reporter.Info() << output << std::endl;
+        }
+        else if (format == OutputFormat::Xml)
+        {
+            // XML output
+            const auto& manifest = context.Get<Execution::Data::Manifest>();
+            const auto& installer = context.Get<Execution::Data::Installer>();
+            auto description = manifest.CurrentLocalization.Get<Manifest::Localization::Description>();
+
+            context.Reporter.Info() << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << std::endl;
+            context.Reporter.Info() << "<package>" << std::endl;
+
+            context.Reporter.Info() << "  <version>" << manifest.Version << "</version>" << std::endl;
+            context.Reporter.Info() << "  <publisher>" << Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>()) << "</publisher>" << std::endl;
+            context.Reporter.Info() << "  <publisherUrl>" << Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::PublisherUrl>()) << "</publisherUrl>" << std::endl;
+            context.Reporter.Info() << "  <author>" << Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::Author>()) << "</author>" << std::endl;
+            context.Reporter.Info() << "  <moniker>" << manifest.Moniker << "</moniker>" << std::endl;
+            context.Reporter.Info() << "  <description>" << Utility::ConvertToUTF8(description.empty() ? manifest.CurrentLocalization.Get<Manifest::Localization::ShortDescription>() : description) << "</description>" << std::endl;
+            context.Reporter.Info() << "  <license>" << Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::License>()) << "</license>" << std::endl;
+            context.Reporter.Info() << "  <licenseUrl>" << Utility::ConvertToUTF8(manifest.CurrentLocalization.Get<Manifest::Localization::LicenseUrl>()) << "</licenseUrl>" << std::endl;
+
+            if (installer)
+            {
+                context.Reporter.Info() << "  <installer>" << std::endl;
+                Manifest::InstallerTypeEnum effectiveInstallerType = installer->EffectiveInstallerType();
+                context.Reporter.Info() << "    <type>" << Manifest::InstallerTypeToString(effectiveInstallerType) << "</type>" << std::endl;
+                context.Reporter.Info() << "    <url>" << installer->Url << "</url>" << std::endl;
+                context.Reporter.Info() << "    <sha256>" << (installer->Sha256.empty() ? "" : Utility::SHA256::ConvertToString(installer->Sha256)) << "</sha256>" << std::endl;
+                context.Reporter.Info() << "  </installer>" << std::endl;
+            }
+
+            context.Reporter.Info() << "</package>" << std::endl;
+        }
+        else
+        {
+            // Default text output
+            context << ShowPackageInfo << ShowInstallerInfo;
+        }
     }
 
     void ShowPackageInfo(Execution::Context& context)

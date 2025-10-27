@@ -50,6 +50,7 @@ The options allow you to customize the list experience to meet your needs.
 | **--upgrade-available** | Lists only packages which have an upgrade available. |
 | **-u,--unknown,--include-unknown** | List packages even if their current version cannot be determined. Can only be used with the --upgrade-available argument. |
 | **--pinned,--include-pinned** | List packages even if they have a pin that prevents upgrade. Can only be used with the --upgrade-available argument. |
+| **--format** | Specifies the output format (json, xml). |
 | **-?,--help** | Get additional help on this command. |
 | **--wait** | Prompts the user to press any key before exiting. |
 | **--logs,--open-logs** | Open the default logs location. |
@@ -79,6 +80,53 @@ In the image below, you will notice the current version of **Google Chrome** has
 ![list update command](images/list-update.png)
 
 The **list** command will show not only the update version available, but the source that the update is available from.
+
+## Output formats
+
+The **list** command supports structured output formats for automation and scripting.
+
+### JSON output
+
+Use `--format json` to output installed packages in JSON format:
+
+```powershell
+winget list --format json
+```
+
+Output structure:
+```json
+{
+  "packages": [
+    {
+      "name": "Visual Studio Code",
+      "id": "Microsoft.VisualStudioCode",
+      "installedVersion": "1.84.0",
+      "availableVersion": "1.85.0",
+      "source": "winget"
+    }
+  ],
+  "truncated": false
+}
+```
+
+For upgrade listings (`--upgrade-available`), additional fields are included:
+```json
+{
+  "packages": [...],
+  "truncated": false,
+  "availableUpgrades": 5,
+  "packagesWithUnknownVersionSkipped": 0,
+  "packagesWithUserPinsSkipped": 0
+}
+```
+
+### XML output
+
+Use `--format xml` to output installed packages in XML format:
+
+```powershell
+winget list --format xml
+```
 
 ## Related topics
 
