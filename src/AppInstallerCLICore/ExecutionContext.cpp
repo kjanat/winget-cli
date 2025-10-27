@@ -137,8 +137,8 @@ namespace AppInstaller::CLI::Execution
 
         if (Args.Contains(Args::Type::OutputFormat))
         {
-            auto format = GetOutputFormatFromContext(*this);
-            if (format == OutputFormat::Json || format == OutputFormat::Xml)
+            auto format = Execution::GetOutputFormatFromContext(*this);
+            if (format == Execution::OutputFormat::Json || format == Execution::OutputFormat::Xml)
             {
                 disableVT = true;
                 isStructuredOutput = true;

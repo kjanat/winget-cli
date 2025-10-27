@@ -1691,7 +1691,7 @@ namespace AppInstaller::CLI::Workflow
     void ShowAppVersions(Execution::Context& context)
     {
         auto versions = GetAllAvailableVersions(context.Get<Execution::Data::Package>())->GetVersionKeys();
-        auto outputFormat = GetOutputFormatFromContext(context);
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
 
         if (outputFormat == Execution::OutputFormat::Json)
         {

@@ -185,7 +185,12 @@ namespace AppInstaller::CLI::Workflow
                     updated = strstr.str();
                 }
 
-                formatter.AddSourceEntry(source.Name, source.Type, source.Arg, source.Data, updated);
+                formatter.AddSourceEntry(
+                    static_cast<std::string>(source.Name),
+                    static_cast<std::string>(source.Type),
+                    static_cast<std::string>(source.Arg),
+                    static_cast<std::string>(source.Data),
+                    updated);
             }
 
             formatter.EndOutput();
@@ -210,7 +215,12 @@ namespace AppInstaller::CLI::Workflow
                     updated = strstr.str();
                 }
 
-                formatter.AddSourceEntry(source.Name, source.Type, source.Arg, source.Data, updated);
+                formatter.AddSourceEntry(
+                    static_cast<std::string>(source.Name),
+                    static_cast<std::string>(source.Type),
+                    static_cast<std::string>(source.Arg),
+                    static_cast<std::string>(source.Data),
+                    updated);
             }
 
             formatter.EndOutput();

@@ -3,6 +3,7 @@
 #pragma once
 #include "ExecutionContext.h"
 #include <json/json.h>
+#include <sstream>
 #include <string>
 #include <vector>
 
