@@ -128,7 +128,7 @@ namespace AppInstaller::CLI::Workflow
 
             // Package info
             root["id"] = static_cast<std::string>(manifest.Id);
-            root["name"] = static_cast<std::string>(manifest.DefaultLocalization.Get<Manifest::Localization::PackageName>());
+            root["name"] = static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::PackageName>());
             root["version"] = manifest.Version;
             root["publisher"] = static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>());
 
@@ -174,6 +174,11 @@ namespace AppInstaller::CLI::Workflow
                 auto typeStr = Manifest::InstallerTypeToString(installer->EffectiveInstallerType());
                 installerObj["type"] = std::string(typeStr.data(), typeStr.size());
 
+                if (!installer->Locale.empty())
+                {
+                    installerObj["locale"] = installer->Locale;
+                }
+
                 if (!installer->Url.empty())
                 {
                     installerObj["url"] = installer->Url;
@@ -184,60 +189,57 @@ namespace AppInstaller::CLI::Workflow
                     installerObj["sha256"] = Utility::SHA256::ConvertToString(installer->Sha256);
                 }
 
+                if (!installer->ProductId.empty())
+                {
+                    installerObj["productId"] = installer->ProductId;
+                }
+
+                if (!installer->ReleaseDate.empty())
+                {
+                    installerObj["releaseDate"] = installer->ReleaseDate;
+                }
+
+                installerObj["offlineDistributionSupported"] = !installer->DownloadCommandProhibited;
+
                 root["installer"] = installerObj;
             }
 
             Json::StreamWriterBuilder builder;
             builder["indentation"] = "  ";
-            context.Reporter.Info() << Json::writeString(builder, root) << std::endl;
+            context.Reporter.Json() << Json::writeString(builder, root) << std::endl;
         }
         else if (format == Execution::OutputFormat::Xml)
         {
             std::ostringstream output;
             output << "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<package>\n";
 
-            auto xmlEscape = [](const std::string& str) -> std::string {
-                std::string result;
-                for (char c : str) {
-                    switch (c) {
-                        case '<': result += "&lt;"; break;
-                        case '>': result += "&gt;"; break;
-                        case '&': result += "&amp;"; break;
-                        case '"': result += "&quot;"; break;
-                        case '\'': result += "&apos;"; break;
-                        default: result += c;
-                    }
-                }
-                return result;
-            };
-
-            output << "  <id>" << xmlEscape(static_cast<std::string>(manifest.Id)) << "</id>\n";
-            output << "  <name>" << xmlEscape(static_cast<std::string>(manifest.DefaultLocalization.Get<Manifest::Localization::PackageName>())) << "</name>\n";
-            output << "  <version>" << xmlEscape(manifest.Version) << "</version>\n";
-            output << "  <publisher>" << xmlEscape(static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>())) << "</publisher>\n";
+            output << "  <id>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(manifest.Id)) << "</id>\n";
+            output << "  <name>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::PackageName>())) << "</name>\n";
+            output << "  <version>" << Execution::XmlOutputFormatter::EscapeXml(manifest.Version) << "</version>\n";
+            output << "  <publisher>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>())) << "</publisher>\n";
 
             auto description = manifest.CurrentLocalization.Get<Manifest::Localization::Description>();
             if (!description.empty())
             {
-                output << "  <description>" << xmlEscape(static_cast<std::string>(description)) << "</description>\n";
+                output << "  <description>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(description)) << "</description>\n";
             }
 
             auto packageUrl = manifest.CurrentLocalization.Get<Manifest::Localization::PackageUrl>();
             if (!packageUrl.empty())
             {
-                output << "  <packageUrl>" << xmlEscape(static_cast<std::string>(packageUrl)) << "</packageUrl>\n";
+                output << "  <packageUrl>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(packageUrl)) << "</packageUrl>\n";
             }
 
             auto license = manifest.CurrentLocalization.Get<Manifest::Localization::License>();
             if (!license.empty())
             {
-                output << "  <license>" << xmlEscape(static_cast<std::string>(license)) << "</license>\n";
+                output << "  <license>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(license)) << "</license>\n";
             }
 
             auto moniker = manifest.Moniker;
             if (!moniker.empty())
             {
-                output << "  <moniker>" << xmlEscape(static_cast<std::string>(moniker)) << "</moniker>\n";
+                output << "  <moniker>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(moniker)) << "</moniker>\n";
             }
 
             const auto& tags = manifest.CurrentLocalization.Get<Manifest::Localization::Tags>();
@@ -246,7 +248,7 @@ namespace AppInstaller::CLI::Workflow
                 output << "  <tags>\n";
                 for (const auto& tag : tags)
                 {
-                    output << "    <tag>" << xmlEscape(static_cast<std::string>(tag)) << "</tag>\n";
+                    output << "    <tag>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(tag)) << "</tag>\n";
                 }
                 output << "  </tags>\n";
             }
@@ -255,20 +257,33 @@ namespace AppInstaller::CLI::Workflow
             {
                 output << "  <installer>\n";
                 auto typeStr = Manifest::InstallerTypeToString(installer->EffectiveInstallerType());
-                output << "    <type>" << xmlEscape(std::string(typeStr.data(), typeStr.size())) << "</type>\n";
+                output << "    <type>" << Execution::XmlOutputFormatter::EscapeXml(std::string(typeStr.data(), typeStr.size())) << "</type>\n";
+                if (!installer->Locale.empty())
+                {
+                    output << "    <locale>" << Execution::XmlOutputFormatter::EscapeXml(installer->Locale) << "</locale>\n";
+                }
                 if (!installer->Url.empty())
                 {
-                    output << "    <url>" << xmlEscape(installer->Url) << "</url>\n";
+                    output << "    <url>" << Execution::XmlOutputFormatter::EscapeXml(installer->Url) << "</url>\n";
                 }
                 if (!installer->Sha256.empty())
                 {
-                    output << "    <sha256>" << xmlEscape(Utility::SHA256::ConvertToString(installer->Sha256)) << "</sha256>\n";
+                    output << "    <sha256>" << Execution::XmlOutputFormatter::EscapeXml(Utility::SHA256::ConvertToString(installer->Sha256)) << "</sha256>\n";
                 }
+                if (!installer->ProductId.empty())
+                {
+                    output << "    <productId>" << Execution::XmlOutputFormatter::EscapeXml(installer->ProductId) << "</productId>\n";
+                }
+                if (!installer->ReleaseDate.empty())
+                {
+                    output << "    <releaseDate>" << Execution::XmlOutputFormatter::EscapeXml(installer->ReleaseDate) << "</releaseDate>\n";
+                }
+                output << "    <offlineDistributionSupported>" << (installer->DownloadCommandProhibited ? "false" : "true") << "</offlineDistributionSupported>\n";
                 output << "  </installer>\n";
             }
 
             output << "</package>\n";
-            context.Reporter.Info() << output.str();
+            context.Reporter.Json() << output.str();
         }
     }
 
