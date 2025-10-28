@@ -344,7 +344,7 @@ TEST_CASE("GetOutputFormatFromContext_Defaults", "[outputformatter]")
     {
         std::ostringstream output;
         TestContext context{ output, std::cin };
-        context.Args.AddArg(Execution::Args::Type::OutputFormat, "text");
+        context.Args.AddArg(Args::Type::OutputFormat, std::string("text"));
 
         REQUIRE(GetOutputFormatFromContext(context) == OutputFormat::Text);
     }
@@ -353,7 +353,7 @@ TEST_CASE("GetOutputFormatFromContext_Defaults", "[outputformatter]")
     {
         std::ostringstream output;
         TestContext context{ output, std::cin };
-        context.Args.AddArg(Execution::Args::Type::OutputFormat, "json");
+        context.Args.AddArg(Args::Type::OutputFormat, std::string("json"));
 
         REQUIRE(GetOutputFormatFromContext(context) == OutputFormat::Json);
     }
@@ -362,7 +362,7 @@ TEST_CASE("GetOutputFormatFromContext_Defaults", "[outputformatter]")
     {
         std::ostringstream output;
         TestContext context{ output, std::cin };
-        context.Args.AddArg(Execution::Args::Type::OutputFormat, "xml");
+        context.Args.AddArg(Args::Type::OutputFormat, std::string("xml"));
 
         REQUIRE(GetOutputFormatFromContext(context) == OutputFormat::Xml);
     }
@@ -371,7 +371,7 @@ TEST_CASE("GetOutputFormatFromContext_Defaults", "[outputformatter]")
     {
         std::ostringstream output;
         TestContext context{ output, std::cin };
-        context.Args.AddArg(Execution::Args::Type::OutputFormat, "JSON");
+        context.Args.AddArg(Args::Type::OutputFormat, std::string("JSON"));
 
         REQUIRE(GetOutputFormatFromContext(context) == OutputFormat::Json);
     }
@@ -1113,7 +1113,7 @@ TEST_CASE("GetOutputFormatFromContext_InvalidFormat", "[outputformatter]")
 {
     std::ostringstream output;
     TestContext context{ output, std::cin };
-    context.Args.AddArg(Execution::Args::Type::OutputFormat, "invalid_format");
+    context.Args.AddArg(Args::Type::OutputFormat, std::string("invalid_format"));
 
     REQUIRE_THROWS_AS(GetOutputFormatFromContext(context), AppInstaller::CLI::CommandException);
 }
