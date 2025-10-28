@@ -72,4 +72,10 @@ namespace AppInstaller::CLI::Workflow
     // Inputs: None
     // Outputs: None
     void CompleteWithEmptySet(Execution::Context& context);
+
+    // Outputs completion values for the --output-format argument (json, xml).
+    // Required Args: None
+    // Inputs: None
+    // Outputs: None
+    void CompleteOutputFormat(Execution::Context& context);
 }

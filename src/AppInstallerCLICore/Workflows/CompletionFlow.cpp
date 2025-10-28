@@ -218,4 +218,11 @@ namespace AppInstaller::CLI::Workflow
     {
         context.Reporter.Completion() << std::endl;
     }
+
+    void CompleteOutputFormat(Execution::Context& context)
+    {
+        auto stream = context.Reporter.Completion();
+        stream << "json" << std::endl;
+        stream << "xml" << std::endl;
+    }
 }

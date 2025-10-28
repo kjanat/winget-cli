@@ -4,6 +4,7 @@
 #include "FeaturesCommand.h"
 #include "TableOutput.h"
 #include "OutputFormatter.h"
+#include "Workflows/CompletionFlow.h"
 #include <winget/UserSettings.h>
 
 namespace AppInstaller::CLI
@@ -37,10 +38,7 @@ namespace AppInstaller::CLI
     {
         if (valueType == Execution::Args::Type::OutputFormat)
         {
-            // Provide completion for output format values
-            auto stream = context.Reporter.Completion();
-            stream << "json" << std::endl;
-            stream << "xml" << std::endl;
+            context << Workflow::CompleteOutputFormat;
         }
     }
 

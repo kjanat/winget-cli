@@ -136,10 +136,7 @@ namespace AppInstaller::CLI
         }
         else if (valueType == Args::Type::OutputFormat)
         {
-            // Provide completion for output format values
-            auto stream = context.Reporter.Completion();
-            stream << "json" << std::endl;
-            stream << "xml" << std::endl;
+            context << Workflow::CompleteOutputFormat;
         }
     }
 
