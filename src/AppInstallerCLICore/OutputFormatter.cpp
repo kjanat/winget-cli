@@ -5,10 +5,22 @@
 #include "ExecutionContext.h"
 #include "Resources.h"
 #include "Command.h"
+#include "VTSupport.h"
+#include <json/json.h>
 #include <algorithm>
 
 namespace AppInstaller::CLI::Execution
 {
+    // PIMPL implementation structure for JsonOutputFormatter
+    struct JsonOutputFormatter::Impl
+    {
+        Json::Value m_root;
+        Json::Value m_packagesArray;
+        Json::Value m_featuresArray;
+        Json::Value m_sourcesArray;
+        bool m_truncated = false;
+        std::vector<std::string> m_errors;
+    };
     OutputFormat ParseOutputFormat(std::string_view format)
     {
         std::string lowerFormat;
@@ -43,49 +55,90 @@ namespace AppInstaller::CLI::Execution
         return OutputFormat::Text;
     }
 
+    std::string FormatTimePointAsISO8601(const std::chrono::system_clock::time_point& timePoint)
+    {
+        // Check if this is epoch (never updated)
+        if (timePoint == Utility::ConvertUnixEpochToSystemClock(0))
+        {
+            return "";
+        }
+
+        // Convert to time_t for formatting
+        auto time = std::chrono::system_clock::to_time_t(timePoint);
+
+        // Convert to UTC
+        std::tm tm{};
+#ifdef _WIN32
+        gmtime_s(&tm, &time);
+#else
+        gmtime_r(&time, &tm);
+#endif
+
+        // Format as ISO-8601 (YYYY-MM-DDTHH:MM:SSZ)
+        char buffer[32];
+        std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &tm);
+
+        return std::string(buffer);
+    }
+
     // JsonOutputFormatter implementation
+    JsonOutputFormatter::JsonOutputFormatter()
+        : m_impl(std::make_unique<Impl>())
+    {
+    }
+
+    JsonOutputFormatter::~JsonOutputFormatter() = default;
+
+    JsonOutputFormatter::JsonOutputFormatter(JsonOutputFormatter&&) noexcept = default;
+
+    JsonOutputFormatter& JsonOutputFormatter::operator=(JsonOutputFormatter&&) noexcept = default;
+
     void JsonOutputFormatter::StartOutput()
     {
-        m_root = Json::Value(Json::objectValue);
-        m_packagesArray = Json::Value(Json::arrayValue);
-        m_featuresArray = Json::Value(Json::arrayValue);
-        m_sourcesArray = Json::Value(Json::arrayValue);
+        m_impl->m_root = Json::Value(Json::objectValue);
+        m_impl->m_packagesArray = Json::Value(Json::arrayValue);
+        m_impl->m_featuresArray = Json::Value(Json::arrayValue);
+        m_impl->m_sourcesArray = Json::Value(Json::arrayValue);
     }
 
     void JsonOutputFormatter::EndOutput()
     {
-        if (!m_packagesArray.empty())
+        if (!m_impl->m_packagesArray.empty())
         {
-            m_root["packages"] = m_packagesArray;
+            m_impl->m_root["packages"] = m_impl->m_packagesArray;
         }
-        if (!m_featuresArray.empty())
+        if (!m_impl->m_featuresArray.empty())
         {
-            m_root["features"] = m_featuresArray;
+            m_impl->m_root["features"] = m_impl->m_featuresArray;
         }
-        if (!m_sourcesArray.empty())
+        if (!m_impl->m_sourcesArray.empty())
         {
-            m_root["sources"] = m_sourcesArray;
+            m_impl->m_root["sources"] = m_impl->m_sourcesArray;
         }
-        if (m_truncated)
+        if (m_impl->m_truncated)
         {
-            m_root["truncated"] = true;
+            m_impl->m_root["truncated"] = true;
         }
-        if (!m_errors.empty())
+        if (!m_impl->m_errors.empty())
         {
             Json::Value errorsArray(Json::arrayValue);
-            for (const auto& error : m_errors)
+            for (const auto& error : m_impl->m_errors)
             {
                 errorsArray.append(error);
             }
-            m_root["errors"] = errorsArray;
+            m_impl->m_root["errors"] = errorsArray;
         }
     }
 
     std::string JsonOutputFormatter::GetOutput() const
     {
         Json::StreamWriterBuilder builder;
-        builder["indentation"] = "  ";
-        return Json::writeString(builder, m_root);
+        // Pretty-print for console, compact for redirected/piped output
+        if (VirtualTerminal::IsConsoleOutput())
+        {
+            builder["indentation"] = "  ";
+        }
+        return Json::writeString(builder, m_impl->m_root);
     }
 
     void JsonOutputFormatter::AddPackageEntry(const std::string& name, const std::string& id,
@@ -107,12 +160,12 @@ namespace AppInstaller::CLI::Execution
         {
             package["source"] = source;
         }
-        m_packagesArray.append(package);
+        m_impl->m_packagesArray.append(package);
     }
 
     void JsonOutputFormatter::AddListEntry(const std::string& name, const std::string& id,
                                           const std::string& version, const std::string& availableVersion,
-                                          const std::string& source)
+                                          const std::string& source, const std::string& category)
     {
         Json::Value package(Json::objectValue);
         package["name"] = name;
@@ -129,18 +182,22 @@ namespace AppInstaller::CLI::Execution
         {
             package["source"] = source;
         }
-        m_packagesArray.append(package);
+        if (!category.empty())
+        {
+            package["category"] = category;
+        }
+        m_impl->m_packagesArray.append(package);
     }
 
-    void JsonOutputFormatter::AddFeatureEntry(const std::string& name, const std::string& status,
+    void JsonOutputFormatter::AddFeatureEntry(const std::string& name, bool enabled,
                                              const std::string& property, const std::string& link)
     {
         Json::Value feature(Json::objectValue);
         feature["name"] = name;
-        feature["status"] = status;
+        feature["enabled"] = enabled;
         feature["property"] = property;
         feature["link"] = link;
-        m_featuresArray.append(feature);
+        m_impl->m_featuresArray.append(feature);
     }
 
     void JsonOutputFormatter::AddSourceEntry(const std::string& name, const std::string& type,
@@ -165,42 +222,56 @@ namespace AppInstaller::CLI::Execution
         {
             source["updated"] = updated;
         }
-        m_sourcesArray.append(source);
+        m_impl->m_sourcesArray.append(source);
     }
 
     void JsonOutputFormatter::SetTruncated(bool truncated)
     {
-        m_truncated = truncated;
+        m_impl->m_truncated = truncated;
     }
 
     void JsonOutputFormatter::AddError(const std::string& message)
     {
-        m_errors.push_back(message);
+        m_impl->m_errors.push_back(message);
     }
 
     // XmlOutputFormatter implementation
     void XmlOutputFormatter::StartOutput()
     {
-        m_output << "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n";
-        m_output << "<root>\n";
+        // Use compact mode when output is redirected/piped
+        m_compact = !VirtualTerminal::IsConsoleOutput();
+
+        m_output << "<?xml version=\"1.0\" encoding=\"utf-8\"?>";
+        if (!m_compact) m_output << "\n";
+        m_output << "<root>";
+        if (!m_compact) m_output << "\n";
     }
 
     void XmlOutputFormatter::EndOutput()
     {
         if (m_truncated)
         {
-            m_output << "  <truncated>true</truncated>\n";
+            if (!m_compact) m_output << "  ";
+            m_output << "<truncated>true</truncated>";
+            if (!m_compact) m_output << "\n";
         }
         if (!m_errors.empty())
         {
-            m_output << "  <errors>\n";
+            if (!m_compact) m_output << "  ";
+            m_output << "<errors>";
+            if (!m_compact) m_output << "\n";
             for (const auto& error : m_errors)
             {
-                m_output << "    <error>" << EscapeXml(error) << "</error>\n";
+                if (!m_compact) m_output << "    ";
+                m_output << "<error>" << EscapeXml(error) << "</error>";
+                if (!m_compact) m_output << "\n";
             }
-            m_output << "  </errors>\n";
+            if (!m_compact) m_output << "  ";
+            m_output << "</errors>";
+            if (!m_compact) m_output << "\n";
         }
-        m_output << "</root>\n";
+        m_output << "</root>";
+        if (!m_compact) m_output << "\n";
     }
 
     std::string XmlOutputFormatter::GetOutput() const
@@ -212,80 +283,140 @@ namespace AppInstaller::CLI::Execution
                                             const std::string& version, const std::string& match,
                                             const std::string& source)
     {
-        m_output << "  <package>\n";
-        m_output << "    <name>" << EscapeXml(name) << "</name>\n";
-        m_output << "    <id>" << EscapeXml(id) << "</id>\n";
+        if (!m_compact) m_output << "  ";
+        m_output << "<package>";
+        if (!m_compact) m_output << "\n";
+        if (!m_compact) m_output << "    ";
+        m_output << "<name>" << EscapeXml(name) << "</name>";
+        if (!m_compact) m_output << "\n";
+        if (!m_compact) m_output << "    ";
+        m_output << "<id>" << EscapeXml(id) << "</id>";
+        if (!m_compact) m_output << "\n";
         if (!version.empty())
         {
-            m_output << "    <version>" << EscapeXml(version) << "</version>\n";
+            if (!m_compact) m_output << "    ";
+            m_output << "<version>" << EscapeXml(version) << "</version>";
+            if (!m_compact) m_output << "\n";
         }
         if (!match.empty())
         {
-            m_output << "    <match>" << EscapeXml(match) << "</match>\n";
+            if (!m_compact) m_output << "    ";
+            m_output << "<match>" << EscapeXml(match) << "</match>";
+            if (!m_compact) m_output << "\n";
         }
         if (!source.empty())
         {
-            m_output << "    <source>" << EscapeXml(source) << "</source>\n";
+            if (!m_compact) m_output << "    ";
+            m_output << "<source>" << EscapeXml(source) << "</source>";
+            if (!m_compact) m_output << "\n";
         }
-        m_output << "  </package>\n";
+        if (!m_compact) m_output << "  ";
+        m_output << "</package>";
+        if (!m_compact) m_output << "\n";
     }
 
     void XmlOutputFormatter::AddListEntry(const std::string& name, const std::string& id,
                                          const std::string& version, const std::string& availableVersion,
-                                         const std::string& source)
+                                         const std::string& source, const std::string& category)
     {
-        m_output << "  <package>\n";
-        m_output << "    <name>" << EscapeXml(name) << "</name>\n";
-        m_output << "    <id>" << EscapeXml(id) << "</id>\n";
+        if (!m_compact) m_output << "  ";
+        m_output << "<package>";
+        if (!m_compact) m_output << "\n";
+        if (!m_compact) m_output << "    ";
+        m_output << "<name>" << EscapeXml(name) << "</name>";
+        if (!m_compact) m_output << "\n";
+        if (!m_compact) m_output << "    ";
+        m_output << "<id>" << EscapeXml(id) << "</id>";
+        if (!m_compact) m_output << "\n";
         if (!version.empty())
         {
-            m_output << "    <version>" << EscapeXml(version) << "</version>\n";
+            if (!m_compact) m_output << "    ";
+            m_output << "<version>" << EscapeXml(version) << "</version>";
+            if (!m_compact) m_output << "\n";
         }
         if (!availableVersion.empty())
         {
-            m_output << "    <availableVersion>" << EscapeXml(availableVersion) << "</availableVersion>\n";
+            if (!m_compact) m_output << "    ";
+            m_output << "<availableVersion>" << EscapeXml(availableVersion) << "</availableVersion>";
+            if (!m_compact) m_output << "\n";
         }
         if (!source.empty())
         {
-            m_output << "    <source>" << EscapeXml(source) << "</source>\n";
+            if (!m_compact) m_output << "    ";
+            m_output << "<source>" << EscapeXml(source) << "</source>";
+            if (!m_compact) m_output << "\n";
         }
-        m_output << "  </package>\n";
+        if (!category.empty())
+        {
+            if (!m_compact) m_output << "    ";
+            m_output << "<category>" << EscapeXml(category) << "</category>";
+            if (!m_compact) m_output << "\n";
+        }
+        if (!m_compact) m_output << "  ";
+        m_output << "</package>";
+        if (!m_compact) m_output << "\n";
     }
 
-    void XmlOutputFormatter::AddFeatureEntry(const std::string& name, const std::string& status,
+    void XmlOutputFormatter::AddFeatureEntry(const std::string& name, bool enabled,
                                             const std::string& property, const std::string& link)
     {
-        m_output << "  <feature>\n";
-        m_output << "    <name>" << EscapeXml(name) << "</name>\n";
-        m_output << "    <status>" << EscapeXml(status) << "</status>\n";
-        m_output << "    <property>" << EscapeXml(property) << "</property>\n";
-        m_output << "    <link>" << EscapeXml(link) << "</link>\n";
-        m_output << "  </feature>\n";
+        if (!m_compact) m_output << "  ";
+        m_output << "<feature>";
+        if (!m_compact) m_output << "\n";
+        if (!m_compact) m_output << "    ";
+        m_output << "<name>" << EscapeXml(name) << "</name>";
+        if (!m_compact) m_output << "\n";
+        if (!m_compact) m_output << "    ";
+        m_output << "<enabled>" << (enabled ? "true" : "false") << "</enabled>";
+        if (!m_compact) m_output << "\n";
+        if (!m_compact) m_output << "    ";
+        m_output << "<property>" << EscapeXml(property) << "</property>";
+        if (!m_compact) m_output << "\n";
+        if (!m_compact) m_output << "    ";
+        m_output << "<link>" << EscapeXml(link) << "</link>";
+        if (!m_compact) m_output << "\n";
+        if (!m_compact) m_output << "  ";
+        m_output << "</feature>";
+        if (!m_compact) m_output << "\n";
     }
 
     void XmlOutputFormatter::AddSourceEntry(const std::string& name, const std::string& type,
                                            const std::string& arg, const std::string& data,
                                            const std::string& updated)
     {
-        m_output << "  <source>\n";
-        m_output << "    <name>" << EscapeXml(name) << "</name>\n";
+        if (!m_compact) m_output << "  ";
+        m_output << "<source>";
+        if (!m_compact) m_output << "\n";
+        if (!m_compact) m_output << "    ";
+        m_output << "<name>" << EscapeXml(name) << "</name>";
+        if (!m_compact) m_output << "\n";
         if (!type.empty())
         {
-            m_output << "    <type>" << EscapeXml(type) << "</type>\n";
+            if (!m_compact) m_output << "    ";
+            m_output << "<type>" << EscapeXml(type) << "</type>";
+            if (!m_compact) m_output << "\n";
         }
         if (!arg.empty())
         {
-            m_output << "    <arg>" << EscapeXml(arg) << "</arg>\n";
+            if (!m_compact) m_output << "    ";
+            m_output << "<arg>" << EscapeXml(arg) << "</arg>";
+            if (!m_compact) m_output << "\n";
         }
         if (!data.empty())
         {
-            m_output << "    <data>" << EscapeXml(data) << "</data>\n";
+            if (!m_compact) m_output << "    ";
+            m_output << "<data>" << EscapeXml(data) << "</data>";
+            if (!m_compact) m_output << "\n";
         }
         if (!updated.empty())
         {
-            m_output << "    <updated>" << EscapeXml(updated) << "</updated>\n";
+            if (!m_compact) m_output << "    ";
+            m_output << "<updated>" << EscapeXml(updated) << "</updated>";
+            if (!m_compact) m_output << "\n";
         }
-        m_output << "  </source>\n";
+        if (!m_compact) m_output << "  ";
+        m_output << "</source>";
+        if (!m_compact) m_output << "\n";
     }
 
     void XmlOutputFormatter::SetTruncated(bool truncated)

@@ -1,11 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 #pragma once
-#include <json/json.h>
 #include <string_view>
 #include <sstream>
 #include <string>
 #include <vector>
+#include <memory>
 
 namespace AppInstaller::CLI::Execution
 {
@@ -25,6 +25,10 @@ namespace AppInstaller::CLI::Execution
     // Validates and returns the output format from context arguments
     OutputFormat GetOutputFormatFromContext(const Context& context);
 
+    // Formats a system_clock time_point as ISO-8601 UTC timestamp
+    // Returns empty string for epoch (never updated)
+    std::string FormatTimePointAsISO8601(const std::chrono::system_clock::time_point& timePoint);
+
     // Base formatter interface
     class IOutputFormatter
     {
@@ -39,7 +43,16 @@ namespace AppInstaller::CLI::Execution
     class JsonOutputFormatter : public IOutputFormatter
     {
     public:
-        JsonOutputFormatter() = default;
+        JsonOutputFormatter();
+        ~JsonOutputFormatter() override;
+
+        // Disable copy (PIMPL typically non-copyable without explicit implementation)
+        JsonOutputFormatter(const JsonOutputFormatter&) = delete;
+        JsonOutputFormatter& operator=(const JsonOutputFormatter&) = delete;
+
+        // Enable move
+        JsonOutputFormatter(JsonOutputFormatter&&) noexcept;
+        JsonOutputFormatter& operator=(JsonOutputFormatter&&) noexcept;
 
         void StartOutput() override;
         void EndOutput() override;
@@ -52,9 +65,9 @@ namespace AppInstaller::CLI::Execution
 
         void AddListEntry(const std::string& name, const std::string& id,
                         const std::string& version, const std::string& availableVersion,
-                        const std::string& source);
+                        const std::string& source, const std::string& category = "");
 
-        void AddFeatureEntry(const std::string& name, const std::string& status,
+        void AddFeatureEntry(const std::string& name, bool enabled,
                            const std::string& property, const std::string& link);
 
         void AddSourceEntry(const std::string& name, const std::string& type,
@@ -65,12 +78,8 @@ namespace AppInstaller::CLI::Execution
         void AddError(const std::string& message);
 
     private:
-        Json::Value m_root;
-        Json::Value m_packagesArray;
-        Json::Value m_featuresArray;
-        Json::Value m_sourcesArray;
-        bool m_truncated = false;
-        std::vector<std::string> m_errors;
+        struct Impl;
+        std::unique_ptr<Impl> m_impl;
     };
 
     // XML formatter for structured output
@@ -90,9 +99,9 @@ namespace AppInstaller::CLI::Execution
 
         void AddListEntry(const std::string& name, const std::string& id,
                         const std::string& version, const std::string& availableVersion,
-                        const std::string& source);
+                        const std::string& source, const std::string& category = "");
 
-        void AddFeatureEntry(const std::string& name, const std::string& status,
+        void AddFeatureEntry(const std::string& name, bool enabled,
                            const std::string& property, const std::string& link);
 
         void AddSourceEntry(const std::string& name, const std::string& type,
@@ -105,6 +114,7 @@ namespace AppInstaller::CLI::Execution
     private:
         std::ostringstream m_output;
         bool m_truncated = false;
+        bool m_compact = false;
         std::vector<std::string> m_errors;
 
         static std::string EscapeXml(const std::string& str);
