@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 #pragma once
+#include <chrono>
 #include <string_view>
 #include <sstream>
 #include <string>
