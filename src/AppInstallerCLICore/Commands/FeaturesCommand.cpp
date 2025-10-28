@@ -33,6 +33,17 @@ namespace AppInstaller::CLI
         return "https://aka.ms/winget-experimentalfeatures"_liv;
     }
 
+    void FeaturesCommand::Complete(Execution::Context& context, Execution::Args::Type valueType) const
+    {
+        if (valueType == Execution::Args::Type::OutputFormat)
+        {
+            // Provide completion for output format values
+            auto stream = context.Reporter.Completion();
+            stream << "json" << std::endl;
+            stream << "xml" << std::endl;
+        }
+    }
+
     void FeaturesCommand::ExecuteInternal(Execution::Context& context) const
     {
 #ifdef WINGET_DISABLE_EXPERIMENTAL_FEATURES
@@ -50,14 +61,14 @@ namespace AppInstaller::CLI
             {
                 formatter.AddFeatureEntry(
                     static_cast<std::string>(feature.Name()),
-                    ExperimentalFeature::IsEnabled(feature.GetFeature()) ? "enabled" : "disabled",
+                    ExperimentalFeature::IsEnabled(feature.GetFeature()),
                     static_cast<std::string>(feature.JsonName()),
                     static_cast<std::string>(feature.Link())
                 );
             }
 
             formatter.EndOutput();
-            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+            context.Reporter.Json() << formatter.GetOutput() << std::endl;
         }
         else if (outputFormat == Execution::OutputFormat::Xml)
         {
@@ -68,14 +79,14 @@ namespace AppInstaller::CLI
             {
                 formatter.AddFeatureEntry(
                     static_cast<std::string>(feature.Name()),
-                    ExperimentalFeature::IsEnabled(feature.GetFeature()) ? "enabled" : "disabled",
+                    ExperimentalFeature::IsEnabled(feature.GetFeature()),
                     static_cast<std::string>(feature.JsonName()),
                     static_cast<std::string>(feature.Link())
                 );
             }
 
             formatter.EndOutput();
-            context.Reporter.Info() << formatter.GetOutput() << std::endl;
+            context.Reporter.Json() << formatter.GetOutput() << std::endl;
         }
         else
         {

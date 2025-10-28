@@ -47,9 +47,12 @@ namespace AppInstaller::CLI
 
     void ListCommand::Complete(Execution::Context& context, Execution::Args::Type valueType) const
     {
-        context <<
-            Workflow::OpenSource() <<
-            Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed);
+        if (valueType != Execution::Args::Type::OutputFormat)
+        {
+            context <<
+                Workflow::OpenSource() <<
+                Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed);
+        }
 
         switch (valueType)
         {
@@ -68,6 +71,14 @@ namespace AppInstaller::CLI
             context <<
                 Workflow::CompleteWithSingleSemanticsForValueUsingExistingSource(valueType);
             break;
+        case Execution::Args::Type::OutputFormat:
+        {
+            // Provide completion for output format values
+            auto stream = context.Reporter.Completion();
+            stream << "json" << std::endl;
+            stream << "xml" << std::endl;
+            break;
+        }
         }
     }
 

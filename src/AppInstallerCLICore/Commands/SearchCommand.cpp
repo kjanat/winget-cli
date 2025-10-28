@@ -63,6 +63,14 @@ namespace AppInstaller::CLI
             context <<
                 Workflow::CompleteWithSingleSemanticsForValue(valueType);
             break;
+        case Execution::Args::Type::OutputFormat:
+        {
+            // Provide completion for output format values
+            auto stream = context.Reporter.Completion();
+            stream << "json" << std::endl;
+            stream << "xml" << std::endl;
+            break;
+        }
         }
     }
 

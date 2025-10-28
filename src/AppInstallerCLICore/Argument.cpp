@@ -313,7 +313,7 @@ namespace AppInstaller::CLI
 
         // Output format
         case Execution::Args::Type::OutputFormat:
-            return { type, "format"_liv };
+            return { type, "format"_liv, ArgTypeCategory::CopyValueToSubContext };
 
         // Authentication arguments
         case Execution::Args::Type::AuthenticationMode:

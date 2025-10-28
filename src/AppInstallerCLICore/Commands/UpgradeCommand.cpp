@@ -99,9 +99,12 @@ namespace AppInstaller::CLI
             return;
         }
 
-        context <<
-            OpenSource() <<
-            OpenCompositeSource(Repository::PredefinedSource::Installed);
+        if (valueType != Execution::Args::Type::OutputFormat)
+        {
+            context <<
+                OpenSource() <<
+                OpenCompositeSource(Repository::PredefinedSource::Installed);
+        }
 
         switch (valueType)
         {
@@ -127,6 +130,14 @@ namespace AppInstaller::CLI
             context <<
                 Workflow::CompleteWithEmptySet;
             break;
+        case Execution::Args::Type::OutputFormat:
+        {
+            // Provide completion for output format values
+            auto stream = context.Reporter.Completion();
+            stream << "json" << std::endl;
+            stream << "xml" << std::endl;
+            break;
+        }
         }
     }
 
