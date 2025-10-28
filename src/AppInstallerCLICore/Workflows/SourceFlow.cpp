@@ -161,6 +161,16 @@ namespace AppInstaller::CLI::Workflow
         }
     }
 
+    /**
+     * @brief Outputs the repository sources from the execution context in the requested format.
+     *
+     * Depending on the output format in the context, writes:
+     * - JSON or XML structured output with entries for Name, Type, Arg, Data, and Updated (ISO-8601 or empty if never updated);
+     * - If a specific SourceName argument was provided, a detailed two-column listing of that single source's fields (Name, Type, Arg, Data, Identifier, TrustLevel, Explicit, Updated);
+     * - Otherwise, a tabular list of all sources showing Name, Arg, and Explicit, or a message indicating no sources exist.
+     *
+     * @param context The execution context containing Data::SourceList, output format and command arguments; used to retrieve sources and emit output.
+     */
     void ListSources(Execution::Context& context)
     {
         const std::vector<Repository::SourceDetails>& sources = context.Get<Data::SourceList>();

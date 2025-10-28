@@ -109,6 +109,13 @@ namespace AppInstaller::CLI
             Workflow::AddSource;
     }
 
+    /**
+     * @brief Defines the command-line arguments supported by the Source list subcommand.
+     *
+     * The list includes an optional source name filter and an optional output format selector.
+     *
+     * @return std::vector<Argument> Vector containing Argument::ForType entries for Args::Type::SourceName and Args::Type::OutputFormat.
+     */
     std::vector<Argument> SourceListCommand::GetArguments() const
     {
         return {
@@ -127,6 +134,13 @@ namespace AppInstaller::CLI
         return { Resource::String::SourceListCommandLongDescription };
     }
 
+    /**
+     * @brief Provides completion candidates for source-related command arguments.
+     *
+     * Requests and emits tab-completion suggestions for the specified argument type.
+     *
+     * @param valueType The argument type to complete. If `Args::Type::SourceName`, emits source names; if `Args::Type::OutputFormat`, emits available output formats such as `json` and `xml`.
+     */
     void SourceListCommand::Complete(Context& context, Args::Type valueType) const
     {
         if (valueType == Args::Type::SourceName)
@@ -140,6 +154,11 @@ namespace AppInstaller::CLI
         }
     }
 
+    /**
+     * @brief Provides the help link URL for the Source command.
+     *
+     * @return Utility::LocIndView The localized, language-independent help link for Source commands.
+     */
     Utility::LocIndView SourceListCommand::HelpLink() const
     {
         return s_SourceCommand_HelpLink;

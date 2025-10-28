@@ -13,7 +13,32 @@
 // The escape character that begins all VT sequences
 #define AICLI_VT_ESCAPE     "\x1b"
 
-namespace AppInstaller::CLI::VirtualTerminal
+/**
+     * Determine whether stdout is connected to a console.
+     *
+     * @returns `true` if stdout is connected to a console, `false` if output is redirected to a file or piped to another process.
+     */
+    
+    /**
+     * RAII helper that enables virtual terminal (VT) support for a console handle and restores the previous console mode on destruction.
+     */
+     
+    /**
+     * Construct a ConsoleModeRestoreBase for the given console handle and enable VT support if possible.
+     *
+     * @param handle Console handle (e.g., from GetStdHandle) to enable VT on and to restore on destruction.
+     */
+    
+    /**
+     * Restore the console mode previously in effect for the associated handle.
+     */
+    
+    /**
+     * Query whether VT support has been successfully enabled for the associated console.
+     *
+     * @returns `true` if VT support was enabled and this instance owns the restoration token, `false` otherwise.
+     */
+    namespace AppInstaller::CLI::VirtualTerminal
 {
     // Returns true if stdout is connected to a console (not redirected/piped).
     // When false, output is being redirected to a file or piped to another process.

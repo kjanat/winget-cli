@@ -11,6 +11,18 @@ namespace AppInstaller::CLI
     using namespace AppInstaller::CLI::Workflow;
     using namespace std::string_view_literals;
 
+    /**
+     * @brief Returns the set of command-line arguments supported by the list command.
+     *
+     * The returned vector lists the recognized arguments and flags (including query filters,
+     * source/authentication options, upgrade-related flags, and output format selection)
+     * that the ListCommand accepts.
+     *
+     * @return std::vector<Argument> Collection of Argument entries for:
+     * Query, Id, Name, Moniker, Source, Tag, Command, Count, Exact, InstallScope,
+     * CustomHeader, AuthenticationMode, AuthenticationAccount, AcceptSourceAgreements,
+     * Upgrade, IncludeUnknown, IncludePinned, and OutputFormat.
+     */
     std::vector<Argument> ListCommand::GetArguments() const
     {
         return {
@@ -45,6 +57,18 @@ namespace AppInstaller::CLI
         return { Resource::String::ListCommandLongDescription };
     }
 
+    /**
+     * @brief Populates shell completion actions for the list command's argument value.
+     *
+     * Sets up completion workflows based on which argument value is being completed.
+     * For query values, requires a non-empty word and offers completions from search matches.
+     * For identifier-like values (Id, Name, Moniker, Source, Tag, Command), provides single-valued
+     * completions using the currently opened source. For OutputFormat, provides completion options
+     * such as "json" and "xml".
+     *
+     * @param context Execution context used to append completion workflows.
+     * @param valueType The argument value type for which completions should be produced.
+     */
     void ListCommand::Complete(Execution::Context& context, Execution::Args::Type valueType) const
     {
         if (valueType != Execution::Args::Type::OutputFormat)

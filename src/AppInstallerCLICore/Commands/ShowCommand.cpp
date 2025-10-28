@@ -12,6 +12,13 @@ namespace AppInstaller::CLI
     using namespace AppInstaller::CLI::Execution;
     using namespace AppInstaller::CLI::Workflow;
 
+    /**
+     * @brief Constructs the list of command-line arguments supported by the `show` command.
+     *
+     * The returned list contains Argument entries for: Query, Manifest (constructed explicitly to avoid Group Policy blocking and shown in help), Id, Name, Moniker, Version, Channel, Source, Exact, InstallScope (shown in help), InstallerArchitecture, InstallerType, Locale, ListVersions, CustomHeader, AuthenticationMode, AuthenticationAccount, AcceptSourceAgreements, and OutputFormat.
+     *
+     * @return std::vector<Argument> Vector of Argument objects defining the `show` command's accepted arguments and their help visibility.
+     */
     std::vector<Argument> ShowCommand::GetArguments() const
     {
         return {
@@ -48,6 +55,16 @@ namespace AppInstaller::CLI
         return { Resource::String::ShowCommandLongDescription };
     }
 
+    /**
+     * @brief Provides completion suggestions for a given argument type.
+     *
+     * Writes completion data into the provided execution context based on the requested argument value type:
+     * - For InstallerArchitecture and Locale, produces an empty completion set.
+     * - For OutputFormat, produces the set of supported output formats.
+     * - For all other types, delegates to the single-value completion semantics.
+     *
+     * @param valueType The argument type for which completion suggestions are requested.
+     */
     void ShowCommand::Complete(Execution::Context& context, Execution::Args::Type valueType) const
     {
         switch (valueType)

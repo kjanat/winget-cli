@@ -7,6 +7,12 @@
 
 #include <iostream>
 
+/**
+ * Retrieve the non-localized text associated with the specified fixed string identifier.
+ *
+ * @param fs The FixedString value identifying which fixed (non-localized) string to retrieve.
+ * @returns A Utility::LocIndView containing the fixed (non-localized) string for the given identifier.
+ */
 namespace AppInstaller::CLI::Resource
 {
     using AppInstaller::StringResource::StringId;
