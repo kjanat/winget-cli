@@ -48,7 +48,7 @@ The following options are available.
 | **--installer-type** | Select the installer type. |
 | **--locale** | Locale to use (BCP47 format). |
 | **--header** | Optional Windows-Package-Manager REST source HTTP header. |
-| **--format** | Specifies the output format. Supported formats: json, xml |
+| **--format** | Specifies the output format. Supported formats: text (default), json, xml |
 | **--accept-source-agreements** | Accept all source agreements during source operations. |
 | **-?, --help** | Gets additional help on this command. |
 | **--wait** | Prompts the user to press any key before exiting. |

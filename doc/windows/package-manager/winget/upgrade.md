@@ -95,6 +95,31 @@ In the example below you will see [**list**](list.md) identifies that an update 
 
 **upgrade --all** will identify all the applications with upgrades available. When you run **winget upgrade --all** the Windows Package Manager will look for all applications that have updates available and attempt to install the upgrade.
 
+## Output formats
+
+The **upgrade** command supports structured output formats for programmatic consumption when listing available upgrades.
+
+### JSON output
+
+Use `--format json` to output available upgrades in JSON format:
+
+```powershell
+winget upgrade --format json
+```
+
+The output will be a JSON object containing an array of packages with their name, id, installed version, available version, and source.
+
+### XML output
+
+Use `--format xml` to output available upgrades in XML format:
+
+```powershell
+winget upgrade --format xml
+```
+
+> [!NOTE]
+> Structured output is only available when listing upgrades. When actually performing an upgrade (e.g., `winget upgrade <package>` or `winget upgrade --all`), the output will show installation progress and results in text format.
+
 ## Related topics
 
 * [Use the winget tool to install and manage applications](index.md)

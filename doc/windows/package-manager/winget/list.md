@@ -1,6 +1,6 @@
 ---
-title: features Command
-description: Displays the list of listed apps and if an update is available.
+title: list Command
+description: Displays the list of installed apps and if an update is available.
 ms.date: 05/5/2021
 ms.topic: overview
 ms.localizationpriority: medium
