@@ -111,12 +111,13 @@ namespace AppInstaller::CLI::Execution
         void SetTruncated(bool truncated);
         void AddError(const std::string& message);
 
+        // Public utility method for XML escaping
+        static std::string EscapeXml(const std::string& str);
+
     private:
         std::ostringstream m_output;
         bool m_truncated = false;
         bool m_compact = false;
         std::vector<std::string> m_errors;
-
-        static std::string EscapeXml(const std::string& str);
     };
 }
