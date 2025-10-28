@@ -278,14 +278,22 @@ namespace AppInstaller::CLI::Workflow
         // Data shown on a line of a table displaying installed packages
         struct InstalledPackagesTableLine
         {
-            InstalledPackagesTableLine(Utility::LocIndString name, Utility::LocIndString id, Utility::LocIndString installedVersion, Utility::LocIndString availableVersion, Utility::LocIndString source)
-                : Name(name), Id(id), InstalledVersion(installedVersion), AvailableVersion(availableVersion), Source(source) {}
+            enum class Category
+            {
+                Normal,
+                UpgradeAvailableForPinned,
+                BlockedByPin
+            };
+
+            InstalledPackagesTableLine(Utility::LocIndString name, Utility::LocIndString id, Utility::LocIndString installedVersion, Utility::LocIndString availableVersion, Utility::LocIndString source, Category category = Category::Normal)
+                : Name(name), Id(id), InstalledVersion(installedVersion), AvailableVersion(availableVersion), Source(source), PackageCategory(category) {}
 
             Utility::LocIndString Name;
             Utility::LocIndString Id;
             Utility::LocIndString InstalledVersion;
             Utility::LocIndString AvailableVersion;
             Utility::LocIndString Source;
+            Category PackageCategory;
         };
 
         void OutputInstalledPackagesTable(Execution::Context& context, const std::vector<InstalledPackagesTableLine>& lines)
@@ -313,30 +321,33 @@ namespace AppInstaller::CLI::Workflow
             table.Complete();
         }
 
-        void OutputInstalledPackagesToFormatter(Execution::JsonOutputFormatter& formatter, const std::vector<InstalledPackagesTableLine>& lines)
+        template <typename Formatter>
+        void OutputInstalledPackagesToFormatter(Formatter& formatter, const std::vector<InstalledPackagesTableLine>& lines)
         {
             for (const auto& line : lines)
             {
-                formatter.AddListEntry(
-                    static_cast<std::string>(line.Name),
-                    static_cast<std::string>(line.Id),
-                    static_cast<std::string>(line.InstalledVersion),
-                    static_cast<std::string>(line.AvailableVersion),
-                    static_cast<std::string>(line.Source)
-                );
-            }
-        }
+                std::string category;
+                switch (line.PackageCategory)
+                {
+                    case InstalledPackagesTableLine::Category::UpgradeAvailableForPinned:
+                        category = "pinnedByManifest";
+                        break;
+                    case InstalledPackagesTableLine::Category::BlockedByPin:
+                        category = "blockedByPin";
+                        break;
+                    case InstalledPackagesTableLine::Category::Normal:
+                    default:
+                        category = "normal";
+                        break;
+                }
 
-        void OutputInstalledPackagesToFormatter(Execution::XmlOutputFormatter& formatter, const std::vector<InstalledPackagesTableLine>& lines)
-        {
-            for (const auto& line : lines)
-            {
                 formatter.AddListEntry(
                     static_cast<std::string>(line.Name),
                     static_cast<std::string>(line.Id),
                     static_cast<std::string>(line.InstalledVersion),
                     static_cast<std::string>(line.AvailableVersion),
-                    static_cast<std::string>(line.Source)
+                    static_cast<std::string>(line.Source),
+                    category
                 );
             }
         }
@@ -1127,15 +1138,29 @@ namespace AppInstaller::CLI::Workflow
                     // Output using the local PackageName instead of the name in the manifest, to prevent confusion for packages that add multiple
                     // Add/Remove Programs entries.
                     // TODO: De-duplicate this list, and only show (by default) one entry per matched package.
+                    
+                    // Determine the category based on pin state
+                    auto pinnedState = ConvertToPinTypeEnum(installedVersion->GetMetadata()[PackageVersionMetadata::PinnedState]);
+                    InstalledPackagesTableLine::Category category = InstalledPackagesTableLine::Category::Normal;
+                    
+                    if (updateIsPinned)
+                    {
+                        category = InstalledPackagesTableLine::Category::BlockedByPin;
+                    }
+                    else if (m_onlyShowUpgrades && pinnedState == PinType::PinnedByManifest)
+                    {
+                        category = InstalledPackagesTableLine::Category::UpgradeAvailableForPinned;
+                    }
+                    
                     InstalledPackagesTableLine line(
                          installedVersion->GetProperty(PackageVersionProperty::Name),
                          match.Package->GetProperty(PackageProperty::Id),
                          installedVersion->GetProperty(PackageVersionProperty::Version),
                          availableVersion,
-                         shouldShowSource ? sourceName : Utility::LocIndString()
+                         shouldShowSource ? sourceName : Utility::LocIndString(),
+                         category
                     );
 
-                    auto pinnedState = ConvertToPinTypeEnum(installedVersion->GetMetadata()[PackageVersionMetadata::PinnedState]);
                     if (updateIsPinned)
                     {
                         linesForPins.push_back(std::move(line));

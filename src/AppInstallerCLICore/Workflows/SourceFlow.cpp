@@ -173,17 +173,8 @@ namespace AppInstaller::CLI::Workflow
 
             for (const auto& source : sources)
             {
-                std::string updated;
-                if (source.LastUpdateTime == Utility::ConvertUnixEpochToSystemClock(0))
-                {
-                    updated = "never";
-                }
-                else
-                {
-                    std::ostringstream strstr;
-                    strstr << source.LastUpdateTime;
-                    updated = strstr.str();
-                }
+                // Use ISO-8601 format for structured output; empty string for "never updated"
+                std::string updated = FormatTimePointAsISO8601(source.LastUpdateTime);
 
                 formatter.AddSourceEntry(
                     static_cast<std::string>(source.Name),
@@ -203,17 +194,8 @@ namespace AppInstaller::CLI::Workflow
 
             for (const auto& source : sources)
             {
-                std::string updated;
-                if (source.LastUpdateTime == Utility::ConvertUnixEpochToSystemClock(0))
-                {
-                    updated = "never";
-                }
-                else
-                {
-                    std::ostringstream strstr;
-                    strstr << source.LastUpdateTime;
-                    updated = strstr.str();
-                }
+                // Use ISO-8601 format for structured output; empty string for "never updated"
+                std::string updated = FormatTimePointAsISO8601(source.LastUpdateTime);
 
                 formatter.AddSourceEntry(
                     static_cast<std::string>(source.Name),
