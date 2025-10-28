@@ -37,6 +37,15 @@ namespace AppInstaller::CLI
         }
     }
 
+    /**
+     * @brief Provide the set of command-line arguments supported by the upgrade command.
+     *
+     * Constructs and returns the list of Argument objects that the upgrade command accepts,
+     * covering query and manifest selectors, installer and install-scope options, behavior
+     * flags (e.g., All, IncludeUnknown, IncludePinned), and output formatting.
+     *
+     * @return std::vector<Argument> The ordered collection of supported arguments for this command.
+     */
     std::vector<Argument> UpgradeCommand::GetArguments() const
     {
         return {
@@ -88,6 +97,13 @@ namespace AppInstaller::CLI
         return { Resource::String::UpgradeCommandLongDescription };
     }
 
+    /**
+     * @brief Provides shell completion candidates for a specific argument type.
+     *
+     * Generates appropriate completion behavior for the given argument type and writes the completion operations into the provided execution context. For Manifest, Log, Override, and InstallLocation the function yields no completions to allow pass-through to the filesystem. For OutputFormat it emits the known output formats. For MultiQuery it requires a non-empty word, searches available sources for many matches, and completes with the matched field. For Id, Name, Moniker, Version, Channel, and Source it completes with a single semantic value using the existing source. For InstallArchitecture and Locale it produces an empty completion set.
+     *
+     * @param valueType The argument type for which to produce completions.
+     */
     void UpgradeCommand::Complete(Execution::Context& context, Execution::Args::Type valueType) const
     {
         if (valueType == Execution::Args::Type::Manifest ||

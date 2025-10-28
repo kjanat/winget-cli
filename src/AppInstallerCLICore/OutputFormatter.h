@@ -7,6 +7,180 @@
 #include <vector>
 #include <memory>
 
+/**
+ * Available output formats.
+ */
+
+/**
+ * Parse a human-readable format string into an OutputFormat value.
+ * @param format Format string to parse (e.g., "text", "json", "xml").
+ * @returns The corresponding OutputFormat value; behavior for unrecognized strings is implementation-defined.
+ */
+
+/**
+ * Determine and validate the output format configured in the provided Context.
+ * @param context Execution context containing output-related arguments/settings.
+ * @returns The resolved OutputFormat based on the context.
+ */
+
+/**
+ * Format a time_point as an ISO-8601 UTC timestamp.
+ * @param timePoint Time point to format.
+ * @returns ISO-8601 UTC string representation of timePoint; empty string if timePoint is epoch (represents "never updated").
+ */
+
+/**
+ * Abstract interface for producing output in a specific format.
+ */
+
+/**
+ * Begin generating output. Implementations should perform any initialization required before entries are added.
+ */
+
+/**
+ * Finish generating output. Implementations should perform any finalization required after entries are added.
+ */
+
+/**
+ * Retrieve the complete formatted output produced by this formatter.
+ * @returns The formatted output as a string.
+ */
+
+/**
+ * JSON formatter for structured output.
+ */
+
+/**
+ * Destructor.
+ */
+
+/**
+ * Begin JSON output generation.
+ */
+
+/**
+ * Finalize JSON output generation.
+ */
+
+/**
+ * Get the generated JSON output.
+ * @returns The formatted JSON output as a string.
+ */
+
+/**
+ * Add a package entry to the output.
+ * @param name Package display name.
+ * @param id Package identifier.
+ * @param version Package version string.
+ * @param match Matching criterion or reason for selection.
+ * @param source Source where the package was found.
+ */
+
+/**
+ * Add a list entry to the output.
+ * @param name Package display name.
+ * @param id Package identifier.
+ * @param version Installed or listed version.
+ * @param availableVersion Available version (if any).
+ * @param source Source where the package is listed.
+ * @param category Optional category for the package.
+ */
+
+/**
+ * Add a feature entry to the output.
+ * @param name Feature name.
+ * @param enabled Whether the feature is enabled.
+ * @param property Additional property or qualifier for the feature.
+ * @param link Associated link or metadata for the feature.
+ */
+
+/**
+ * Add a source entry to the output.
+ * @param name Source name.
+ * @param type Source type.
+ * @param arg Source argument or identifier.
+ * @param data Additional source-specific data.
+ * @param updated Last-updated timestamp string for the source.
+ */
+
+/**
+ * Mark whether the output has been truncated.
+ * @param truncated True if the output was truncated, false otherwise.
+ */
+
+/**
+ * Record an error message to include in the output.
+ * @param message Error message to include.
+ */
+
+/**
+ * XML formatter for structured output.
+ */
+
+/**
+ * Begin XML output generation.
+ */
+
+/**
+ * Finalize XML output generation.
+ */
+
+/**
+ * Get the generated XML output.
+ * @returns The formatted XML output as a string.
+ */
+
+/**
+ * Add a package entry to the output.
+ * @param name Package display name.
+ * @param id Package identifier.
+ * @param version Package version string.
+ * @param match Matching criterion or reason for selection.
+ * @param source Source where the package was found.
+ */
+
+/**
+ * Add a list entry to the output.
+ * @param name Package display name.
+ * @param id Package identifier.
+ * @param version Installed or listed version.
+ * @param availableVersion Available version (if any).
+ * @param source Source where the package is listed.
+ * @param category Optional category for the package.
+ */
+
+/**
+ * Add a feature entry to the output.
+ * @param name Feature name.
+ * @param enabled Whether the feature is enabled.
+ * @param property Additional property or qualifier for the feature.
+ * @param link Associated link or metadata for the feature.
+ */
+
+/**
+ * Add a source entry to the output.
+ * @param name Source name.
+ * @param type Source type.
+ * @param arg Source argument or identifier.
+ * @param data Additional source-specific data.
+ * @param updated Last-updated timestamp string for the source.
+ */
+
+/**
+ * Mark whether the output has been truncated.
+ * @param truncated True if the output was truncated, false otherwise.
+ */
+
+/**
+ * Record an error message to include in the output.
+ * @param message Error message to include.
+ */
+
+/**
+ * Escape XML special characters in the provided string.
+ * @param str Input string potentially containing XML special characters.
+ * @returns A string with XML special characters escaped.
+ */
 namespace AppInstaller::CLI::Execution
 {
     // Forward declaration to reduce header coupling

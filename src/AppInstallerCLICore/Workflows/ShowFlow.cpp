@@ -96,6 +96,15 @@ namespace {
 
 namespace AppInstaller::CLI::Workflow
 {
+    /**
+     * @brief Displays agreement-related metadata from the active manifest to the output reporter.
+     *
+     * Outputs manifest fields such as version, publisher, publisher/support URLs, author,
+     * package and license information, privacy and copyright information, purchase URL,
+     * and the list of agreements to the context's reporter.
+     *
+     * @param context Execution context that provides the manifest data and the reporter to write to.
+     */
     void ShowAgreementsInfo(Execution::Context& context)
     {
         const auto& manifest = context.Get<Execution::Data::Manifest>();
@@ -117,6 +126,17 @@ namespace AppInstaller::CLI::Workflow
         
     }
 
+    /**
+     * @brief Emit the manifest and its installer information to the execution reporter in the requested structured format.
+     *
+     * Serializes package-level fields (id, name, version, publisher, optional description, packageUrl, license,
+     * moniker, and tags) and, when an installer is present, installer fields (type, locale, url, sha256,
+     * productId, releaseDate, and offlineDistributionSupported) into either JSON or XML and writes the result
+     * to the context's reporter.
+     *
+     * @param context Execution context that provides the manifest, installer, and reporter used for output.
+     * @param format The structured output format to produce (JSON or XML).
+     */
     void OutputManifestAsStructured(Execution::Context& context, Execution::OutputFormat format)
     {
         const auto& manifest = context.Get<Execution::Data::Manifest>();
@@ -287,6 +307,14 @@ namespace AppInstaller::CLI::Workflow
         }
     }
 
+    /**
+     * @brief Displays manifest information using the context's selected output format.
+     *
+     * Chooses between structured output (JSON or XML) and plain text output and emits
+     * the manifest and installer information through the provided execution context.
+     *
+     * @param context Execution context used to determine output format and to emit output.
+     */
     void ShowManifestInfo(Execution::Context& context)
     {
         auto outputFormat = Execution::GetOutputFormatFromContext(context);
@@ -301,6 +329,15 @@ namespace AppInstaller::CLI::Workflow
         }
     }
 
+    /**
+     * @brief Renders package-level metadata from the active manifest to the reporter.
+     *
+     * Outputs human-readable package information such as version, publisher, author, moniker,
+     * description (prefers full description and falls back to short description), package URL,
+     * license and license URL, privacy URL, copyright and copyright URL, release notes and
+     * release notes URL, purchase URL, installation notes, documentation entries (label and URL),
+     * tags, and agreements.
+     */
     void ShowPackageInfo(Execution::Context& context)
     {
         const auto& manifest = context.Get<Execution::Data::Manifest>();
@@ -348,6 +385,17 @@ namespace AppInstaller::CLI::Workflow
         ShowAgreements(info, manifest.CurrentLocalization.Get<Manifest::Localization::Agreements>());
     }
 
+    /**
+     * @brief Displays installer details from the execution context to the reporter.
+     *
+     * Outputs an "Installer" header and, if an installer is present, prints labeled fields for:
+     * installer type (appending the base installer type in parentheses when different), locale,
+     * URL, SHA256 (hex string when available), product ID, release date, and whether offline distribution
+     * is supported. If the installer declares dependencies, they are listed grouped by type (Windows Features,
+     * Windows Libraries, Packages, External); package dependencies include a minimum-version annotation shown as
+     * "[>= <version>]" when provided. If no applicable installer is found, emits a warning with the
+     * NoApplicableInstallers message.
+     */
     void ShowInstallerInfo(Execution::Context& context)
     {
         const auto& installer = context.Get<Execution::Data::Installer>();
