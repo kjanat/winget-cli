@@ -9,6 +9,23 @@
 using namespace AppInstaller::CLI::Execution;
 using namespace TestCommon;
 
+namespace
+{
+    // Helper function to parse JSON output and fail test if parsing fails
+    Json::Value ParseJsonOrFail(const std::string& output)
+    {
+        Json::CharReaderBuilder builder;
+        Json::Value root;
+        std::istringstream stream(output);
+        std::string errors;
+        if (!Json::parseFromStream(builder, stream, &root, &errors))
+        {
+            FAIL("Failed to parse JSON: " << errors << "\nOutput: " << output);
+        }
+        return root;
+    }
+}
+
 TEST_CASE("ParseOutputFormat_ValidFormats", "[outputformatter]")
 {
     SECTION("JSON lowercase")
@@ -79,18 +96,19 @@ TEST_CASE("JsonOutputFormatter_PackageEntry", "[outputformatter]")
 
     std::string output = formatter.GetOutput();
 
-    // Verify JSON contains expected fields
-    REQUIRE(output.find("\"packages\"") != std::string::npos);
-    REQUIRE(output.find("\"name\"") != std::string::npos);
-    REQUIRE(output.find("TestPackage") != std::string::npos);
-    REQUIRE(output.find("\"id\"") != std::string::npos);
-    REQUIRE(output.find("Publisher.TestPackage") != std::string::npos);
-    REQUIRE(output.find("\"version\"") != std::string::npos);
-    REQUIRE(output.find("1.0.0") != std::string::npos);
-    REQUIRE(output.find("\"match\"") != std::string::npos);
-    REQUIRE(output.find("Tag: test") != std::string::npos);
-    REQUIRE(output.find("\"source\"") != std::string::npos);
-    REQUIRE(output.find("winget") != std::string::npos);
+    // Parse and validate JSON structure
+    auto root = ParseJsonOrFail(output);
+    REQUIRE(root.isMember("packages"));
+    const auto& packages = root["packages"];
+    REQUIRE(packages.isArray());
+    REQUIRE(packages.size() == 1);
+
+    const auto& pkg = packages[0];
+    REQUIRE(pkg["name"].asString() == "TestPackage");
+    REQUIRE(pkg["id"].asString() == "Publisher.TestPackage");
+    REQUIRE(pkg["version"].asString() == "1.0.0");
+    REQUIRE(pkg["match"].asString() == "Tag: test");
+    REQUIRE(pkg["source"].asString() == "winget");
 }
 
 TEST_CASE("JsonOutputFormatter_ListEntry", "[outputformatter]")
@@ -102,18 +120,19 @@ TEST_CASE("JsonOutputFormatter_ListEntry", "[outputformatter]")
 
     std::string output = formatter.GetOutput();
 
-    // Verify JSON contains expected fields
-    REQUIRE(output.find("\"packages\"") != std::string::npos);
-    REQUIRE(output.find("\"name\"") != std::string::npos);
-    REQUIRE(output.find("TestPackage") != std::string::npos);
-    REQUIRE(output.find("\"id\"") != std::string::npos);
-    REQUIRE(output.find("Publisher.TestPackage") != std::string::npos);
-    REQUIRE(output.find("\"version\"") != std::string::npos);
-    REQUIRE(output.find("1.0.0") != std::string::npos);
-    REQUIRE(output.find("\"availableVersion\"") != std::string::npos);
-    REQUIRE(output.find("1.1.0") != std::string::npos);
-    REQUIRE(output.find("\"source\"") != std::string::npos);
-    REQUIRE(output.find("winget") != std::string::npos);
+    // Parse and validate JSON structure
+    auto root = ParseJsonOrFail(output);
+    REQUIRE(root.isMember("packages"));
+    const auto& packages = root["packages"];
+    REQUIRE(packages.isArray());
+    REQUIRE(packages.size() == 1);
+
+    const auto& pkg = packages[0];
+    REQUIRE(pkg["name"].asString() == "TestPackage");
+    REQUIRE(pkg["id"].asString() == "Publisher.TestPackage");
+    REQUIRE(pkg["version"].asString() == "1.0.0");
+    REQUIRE(pkg["availableVersion"].asString() == "1.1.0");
+    REQUIRE(pkg["source"].asString() == "winget");
 }
 
 TEST_CASE("JsonOutputFormatter_FeatureEntry", "[outputformatter]")
@@ -1135,10 +1154,14 @@ TEST_CASE("JsonOutputFormatter_SpecialCharactersInAllFields", "[outputformatter]
 
     std::string output = formatter.GetOutput();
 
-    // JSON library should handle escaping automatically
-    REQUIRE_FALSE(output.empty());
-    REQUIRE(output.find("Test") != std::string::npos);
-    REQUIRE(output.find("Package") != std::string::npos);
+    // Parse JSON and verify special characters were properly escaped and decoded
+    auto root = ParseJsonOrFail(output);
+    const auto& pkg = root["packages"][0];
+    REQUIRE(pkg["name"].asString() == "Test\"Package");
+    REQUIRE(pkg["id"].asString() == "Pub\\TestPackage");
+    REQUIRE(pkg["version"].asString() == "1.0\n0");
+    REQUIRE(pkg["match"].asString() == "Match:\ttest");
+    REQUIRE(pkg["source"].asString() == "win\rget");
 }
 
 TEST_CASE("XmlOutputFormatter_NewlinesAndTabs", "[outputformatter]")
@@ -1192,8 +1215,13 @@ TEST_CASE("JsonOutputFormatter_EmptyErrorMessage", "[outputformatter]")
 
     std::string output = formatter.GetOutput();
 
-    // Even empty error should be included
-    REQUIRE(output.find("\"errors\"") != std::string::npos);
+    // Verify empty error is actually included in errors array
+    auto root = ParseJsonOrFail(output);
+    REQUIRE(root.isMember("errors"));
+    const auto& errors = root["errors"];
+    REQUIRE(errors.isArray());
+    REQUIRE(errors.size() == 1);
+    REQUIRE(errors[0].asString().empty());
 }
 
 TEST_CASE("XmlOutputFormatter_EmptyErrorMessage", "[outputformatter]")
