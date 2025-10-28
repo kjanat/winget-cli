@@ -89,6 +89,19 @@ namespace AppInstaller::CLI::VirtualTerminal
         }
     }
 
+    bool IsConsoleOutput()
+    {
+        HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (hStdOut == INVALID_HANDLE_VALUE || hStdOut == NULL)
+        {
+            return false;
+        }
+
+        DWORD mode = 0;
+        // GetConsoleMode fails with ERROR_INVALID_HANDLE when output is redirected
+        return GetConsoleMode(hStdOut, &mode) != 0;
+    }
+
     ConsoleModeRestoreBase::ConsoleModeRestoreBase(DWORD handle) : m_handle(handle) {}
 
     ConsoleModeRestoreBase::~ConsoleModeRestoreBase()

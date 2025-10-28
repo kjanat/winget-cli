@@ -15,6 +15,10 @@
 
 namespace AppInstaller::CLI::VirtualTerminal
 {
+    // Returns true if stdout is connected to a console (not redirected/piped).
+    // When false, output is being redirected to a file or piped to another process.
+    bool IsConsoleOutput();
+
     // RAII class to enable VT support and restore the console mode.
     struct ConsoleModeRestoreBase
     {
