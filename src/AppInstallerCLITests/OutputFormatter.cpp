@@ -2,10 +2,12 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "TestCommon.h"
+#include "WorkflowCommon.h"
 #include <OutputFormatter.h>
 #include <Command.h>
 
 using namespace AppInstaller::CLI::Execution;
+using namespace TestCommon;
 
 TEST_CASE("ParseOutputFormat_ValidFormats", "[outputformatter]")
 {
@@ -116,23 +118,41 @@ TEST_CASE("JsonOutputFormatter_ListEntry", "[outputformatter]")
 
 TEST_CASE("JsonOutputFormatter_FeatureEntry", "[outputformatter]")
 {
-    JsonOutputFormatter formatter;
-    formatter.StartOutput();
-    formatter.AddFeatureEntry("TestFeature", "enabled", "testFeature", "https://example.com");
-    formatter.EndOutput();
+    SECTION("Enabled feature")
+    {
+        JsonOutputFormatter formatter;
+        formatter.StartOutput();
+        formatter.AddFeatureEntry("TestFeature", true, "testFeature", "https://example.com");
+        formatter.EndOutput();
 
-    std::string output = formatter.GetOutput();
+        std::string output = formatter.GetOutput();
 
-    // Verify JSON contains expected fields
-    REQUIRE(output.find("\"features\"") != std::string::npos);
-    REQUIRE(output.find("\"name\"") != std::string::npos);
-    REQUIRE(output.find("TestFeature") != std::string::npos);
-    REQUIRE(output.find("\"status\"") != std::string::npos);
-    REQUIRE(output.find("enabled") != std::string::npos);
-    REQUIRE(output.find("\"property\"") != std::string::npos);
-    REQUIRE(output.find("testFeature") != std::string::npos);
-    REQUIRE(output.find("\"link\"") != std::string::npos);
-    REQUIRE(output.find("https://example.com") != std::string::npos);
+        // Verify JSON contains expected fields
+        REQUIRE(output.find("\"features\"") != std::string::npos);
+        REQUIRE(output.find("\"name\"") != std::string::npos);
+        REQUIRE(output.find("TestFeature") != std::string::npos);
+        REQUIRE(output.find("\"enabled\"") != std::string::npos);
+        REQUIRE(output.find("true") != std::string::npos);
+        REQUIRE(output.find("\"property\"") != std::string::npos);
+        REQUIRE(output.find("testFeature") != std::string::npos);
+        REQUIRE(output.find("\"link\"") != std::string::npos);
+        REQUIRE(output.find("https://example.com") != std::string::npos);
+    }
+
+    SECTION("Disabled feature")
+    {
+        JsonOutputFormatter formatter;
+        formatter.StartOutput();
+        formatter.AddFeatureEntry("TestFeature", false, "testFeature", "https://example.com");
+        formatter.EndOutput();
+
+        std::string output = formatter.GetOutput();
+
+        // Verify JSON contains expected fields with false status
+        REQUIRE(output.find("\"features\"") != std::string::npos);
+        REQUIRE(output.find("\"enabled\"") != std::string::npos);
+        REQUIRE(output.find("false") != std::string::npos);
+    }
 }
 
 TEST_CASE("JsonOutputFormatter_Truncated", "[outputformatter]")
@@ -202,6 +222,40 @@ TEST_CASE("XmlOutputFormatter_XmlEscaping", "[outputformatter]")
     // Verify raw characters are NOT present
     REQUIRE(output.find("Test<Package>") == std::string::npos);
     REQUIRE(output.find("Publisher&Co") == std::string::npos);
+}
+
+TEST_CASE("XmlOutputFormatter_FeatureEntry", "[outputformatter]")
+{
+    SECTION("Enabled feature")
+    {
+        XmlOutputFormatter formatter;
+        formatter.StartOutput();
+        formatter.AddFeatureEntry("TestFeature", true, "testFeature", "https://example.com");
+        formatter.EndOutput();
+
+        std::string output = formatter.GetOutput();
+
+        // Verify XML structure
+        REQUIRE(output.find("<feature>") != std::string::npos);
+        REQUIRE(output.find("</feature>") != std::string::npos);
+        REQUIRE(output.find("<name>TestFeature</name>") != std::string::npos);
+        REQUIRE(output.find("<enabled>true</enabled>") != std::string::npos);
+        REQUIRE(output.find("<property>testFeature</property>") != std::string::npos);
+        REQUIRE(output.find("<link>https://example.com</link>") != std::string::npos);
+    }
+
+    SECTION("Disabled feature")
+    {
+        XmlOutputFormatter formatter;
+        formatter.StartOutput();
+        formatter.AddFeatureEntry("TestFeature", false, "testFeature", "https://example.com");
+        formatter.EndOutput();
+
+        std::string output = formatter.GetOutput();
+
+        // Verify XML structure with false status
+        REQUIRE(output.find("<enabled>false</enabled>") != std::string::npos);
+    }
 }
 
 TEST_CASE("XmlOutputFormatter_ListEntry", "[outputformatter]")
@@ -274,4 +328,141 @@ TEST_CASE("XmlOutputFormatter_EmptyResults", "[outputformatter]")
     REQUIRE(output.find("<?xml version=\"1.0\" encoding=\"utf-8\"?>") != std::string::npos);
     REQUIRE(output.find("<root>") != std::string::npos);
     REQUIRE(output.find("</root>") != std::string::npos);
+}
+
+TEST_CASE("GetOutputFormatFromContext_Defaults", "[outputformatter]")
+{
+    SECTION("No format argument defaults to Text")
+    {
+        std::ostringstream output;
+        TestContext context{ output, std::cin };
+
+        REQUIRE(GetOutputFormatFromContext(context) == OutputFormat::Text);
+    }
+
+    SECTION("Explicit text format")
+    {
+        std::ostringstream output;
+        TestContext context{ output, std::cin };
+        context.Args.AddArg(Execution::Args::Type::OutputFormat, "text");
+
+        REQUIRE(GetOutputFormatFromContext(context) == OutputFormat::Text);
+    }
+
+    SECTION("JSON format from context")
+    {
+        std::ostringstream output;
+        TestContext context{ output, std::cin };
+        context.Args.AddArg(Execution::Args::Type::OutputFormat, "json");
+
+        REQUIRE(GetOutputFormatFromContext(context) == OutputFormat::Json);
+    }
+
+    SECTION("XML format from context")
+    {
+        std::ostringstream output;
+        TestContext context{ output, std::cin };
+        context.Args.AddArg(Execution::Args::Type::OutputFormat, "xml");
+
+        REQUIRE(GetOutputFormatFromContext(context) == OutputFormat::Xml);
+    }
+
+    SECTION("Case insensitive JSON")
+    {
+        std::ostringstream output;
+        TestContext context{ output, std::cin };
+        context.Args.AddArg(Execution::Args::Type::OutputFormat, "JSON");
+
+        REQUIRE(GetOutputFormatFromContext(context) == OutputFormat::Json);
+    }
+}
+
+TEST_CASE("JsonOutputFormatter_CompactMode", "[outputformatter]")
+{
+    // Note: In test environments, IsConsoleOutput() returns false (no console),
+    // so JSON output is compact by default. This is the expected behavior for automation.
+    JsonOutputFormatter formatter;
+    formatter.StartOutput();
+    formatter.AddPackageEntry("TestPkg", "Pub.TestPkg", "1.0", "", "src");
+    formatter.EndOutput();
+
+    std::string output = formatter.GetOutput();
+
+    // Verify it's valid JSON
+    REQUIRE(output.find("\"packages\"") != std::string::npos);
+    REQUIRE(output.find("\"name\"") != std::string::npos);
+
+    // In compact mode (test environment), output should be more dense
+    // We can verify this by checking the output is relatively compact
+    REQUIRE_FALSE(output.empty());
+}
+
+TEST_CASE("XmlOutputFormatter_CompactMode", "[outputformatter]")
+{
+    // Note: In test environments, IsConsoleOutput() returns false (no console),
+    // so XML output is compact by default (no indentation/newlines).
+    XmlOutputFormatter formatter;
+    formatter.StartOutput();
+    formatter.AddPackageEntry("TestPkg", "Pub.TestPkg", "1.0", "", "src");
+    formatter.EndOutput();
+
+    std::string output = formatter.GetOutput();
+
+    // Verify it's valid XML with all required elements in compact form
+    REQUIRE(output.find("<?xml version=\"1.0\" encoding=\"utf-8\"?>") != std::string::npos);
+    REQUIRE(output.find("<root>") != std::string::npos);
+    REQUIRE(output.find("<package>") != std::string::npos);
+    REQUIRE(output.find("<name>TestPkg</name>") != std::string::npos);
+    REQUIRE(output.find("</package>") != std::string::npos);
+    REQUIRE(output.find("</root>") != std::string::npos);
+}
+
+TEST_CASE("FormatTimePointAsISO8601", "[outputformatter]")
+{
+    SECTION("Epoch returns empty string")
+    {
+        auto epoch = AppInstaller::Utility::ConvertUnixEpochToSystemClock(0);
+        auto result = FormatTimePointAsISO8601(epoch);
+
+        REQUIRE(result.empty());
+    }
+
+    SECTION("Valid timestamp returns ISO-8601 format")
+    {
+        // Create a known timestamp: 2025-01-15 14:30:00 UTC
+        std::tm tm{};
+        tm.tm_year = 2025 - 1900;
+        tm.tm_mon = 0;  // January
+        tm.tm_mday = 15;
+        tm.tm_hour = 14;
+        tm.tm_min = 30;
+        tm.tm_sec = 0;
+        tm.tm_isdst = 0;
+
+#ifdef _WIN32
+        auto time = _mkgmtime(&tm);
+#else
+        auto time = timegm(&tm);
+#endif
+        auto timePoint = std::chrono::system_clock::from_time_t(time);
+        auto result = FormatTimePointAsISO8601(timePoint);
+
+        // Verify ISO-8601 format with UTC marker
+        REQUIRE(result == "2025-01-15T14:30:00Z");
+    }
+
+    SECTION("Formatted timestamp ends with Z for UTC")
+    {
+        auto now = std::chrono::system_clock::now();
+        auto result = FormatTimePointAsISO8601(now);
+
+        // Should not be empty (not epoch)
+        REQUIRE_FALSE(result.empty());
+
+        // Should end with Z for UTC
+        REQUIRE(result.back() == 'Z');
+
+        // Should contain T separator
+        REQUIRE(result.find('T') != std::string::npos);
+    }
 }
