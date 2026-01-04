@@ -86,8 +86,18 @@ jobs:
 
       - name: Run Unit Tests (WinGetUtilInterop.UnitTests)
         run: |
-          $testDll = "src\WinGetUtilInterop.UnitTests\bin\${{ matrix.platform }}\${{ matrix.configuration }}\net8.0\WinGetUtilInterop.UnitTests.dll"
+          $testDir = "src\WinGetUtilInterop.UnitTests\bin\${{ matrix.platform }}\${{ matrix.configuration }}\net8.0"
+          $testDll = "$testDir\WinGetUtilInterop.UnitTests.dll"
+          $wingetUtilDll = "${{ env.BUILD_OUT }}\WinGetUtil\WinGetUtil.dll"
+          
           if (Test-Path $testDll) {
+            # Copy WinGetUtil.dll to test directory (required native dependency)
+            if (Test-Path $wingetUtilDll) {
+              Copy-Item $wingetUtilDll -Destination $testDir -Force
+              Write-Host "Copied WinGetUtil.dll to $testDir"
+            } else {
+              Write-Warning "WinGetUtil.dll not found at $wingetUtilDll"
+            }
             dotnet test $testDll --logger "console;verbosity=normal"
           } else {
             Write-Warning "Test DLL not found: $testDll - skipping"
