@@ -7,6 +7,12 @@
 
 #include <iostream>
 
+/**
+ * Retrieve the non-localized text associated with the specified fixed string identifier.
+ *
+ * @param fs The FixedString value identifying which fixed (non-localized) string to retrieve.
+ * @returns A Utility::LocIndView containing the fixed (non-localized) string for the given identifier.
+ */
 namespace AppInstaller::CLI::Resource
 {
     using AppInstaller::StringResource::StringId;
@@ -313,6 +319,8 @@ namespace AppInstaller::CLI::Resource
         WINGET_DEFINE_RESOURCE_STRINGID(FontFileNotSupported);
         WINGET_DEFINE_RESOURCE_STRINGID(FontDetailsArgumentDescription);
         WINGET_DEFINE_RESOURCE_STRINGID(FontFilePaths);
+        WINGET_DEFINE_RESOURCE_STRINGID(FormatArgumentDescription);
+        WINGET_DEFINE_RESOURCE_STRINGID(FormatUnsupportedError);
         WINGET_DEFINE_RESOURCE_STRINGID(FontInstallFailed);
         WINGET_DEFINE_RESOURCE_STRINGID(FontListCommandLongDescription);
         WINGET_DEFINE_RESOURCE_STRINGID(FontListCommandShortDescription);

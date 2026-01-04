@@ -7,6 +7,8 @@
 namespace AppInstallerCLIE2ETests
 {
     using System.IO;
+    using System.Text.Json;
+    using System.Xml.Linq;
     using AppInstallerCLIE2ETests.Helpers;
     using NUnit.Framework;
 
@@ -254,6 +256,81 @@ namespace AppInstallerCLIE2ETests
             {
                 TestCommon.RunCommand(Path.Combine(installDir, Constants.TestExeUninstallerFileName));
             }
+        }
+
+        /// <summary>
+        /// Test list with --format json.
+        /// </summary>
+        [Test]
+        public void ListWithFormatJson()
+        {
+            var result = TestCommon.RunAICLICommand("list", Constants.AICLIPackageFamilyName + " --format json");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid JSON
+            JsonDocument json = JsonDocument.Parse(result.StdOut);
+            Assert.IsNotNull(json);
+
+            // Verify JSON structure
+            JsonElement root = json.RootElement;
+            Assert.IsTrue(root.TryGetProperty("Packages", out JsonElement packages));
+            Assert.AreEqual(JsonValueKind.Array, packages.ValueKind);
+        }
+
+        /// <summary>
+        /// Test list with --format xml.
+        /// </summary>
+        [Test]
+        public void ListWithFormatXml()
+        {
+            var result = TestCommon.RunAICLICommand("list", Constants.AICLIPackageFamilyName + " --format xml");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid XML
+            XDocument xml = XDocument.Parse(result.StdOut);
+            Assert.IsNotNull(xml);
+
+            // Verify XML structure
+            Assert.IsNotNull(xml.Root);
+            Assert.AreEqual("Packages", xml.Root.Name.LocalName);
+        }
+
+        /// <summary>
+        /// Test list with --format json case insensitive.
+        /// </summary>
+        [Test]
+        public void ListWithFormatJsonCaseInsensitive()
+        {
+            var result = TestCommon.RunAICLICommand("list", Constants.AICLIPackageFamilyName + " --format JSON");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid JSON
+            JsonDocument json = JsonDocument.Parse(result.StdOut);
+            Assert.IsNotNull(json);
+        }
+
+        /// <summary>
+        /// Test list with --format text.
+        /// </summary>
+        [Test]
+        public void ListWithFormatText()
+        {
+            var result = TestCommon.RunAICLICommand("list", Constants.AICLIPackageFamilyName + " --format text");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's text format (not JSON)
+            Assert.True(result.StdOut.Contains(Constants.AICLIPackageName));
+            Assert.Throws<JsonException>(() => JsonDocument.Parse(result.StdOut));
+        }
+
+        /// <summary>
+        /// Test list with invalid --format value.
+        /// </summary>
+        [Test]
+        public void ListWithInvalidFormat()
+        {
+            var result = TestCommon.RunAICLICommand("list", "--format yaml");
+            Assert.AreNotEqual(Constants.ErrorCode.S_OK, result.ExitCode);
         }
     }
 }

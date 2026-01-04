@@ -6,6 +6,8 @@
 
 namespace AppInstallerCLIE2ETests
 {
+    using System.Text.Json;
+    using System.Xml.Linq;
     using AppInstallerCLIE2ETests.Helpers;
     using NUnit.Framework;
 
@@ -147,6 +149,77 @@ namespace AppInstallerCLIE2ETests
             Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
             Assert.True(result.StdOut.Contains("Found TestMultipleInstallers [AppInstallerTest.TestMultipleInstallers]"));
             Assert.True(result.StdOut.Contains("Installer Type: exe (zip)"));
+        }
+
+        /// <summary>
+        /// Test show with --format json.
+        /// </summary>
+        [Test]
+        public void ShowWithFormatJson()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller --format json");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid JSON
+            JsonDocument json = JsonDocument.Parse(result.StdOut);
+            Assert.IsNotNull(json);
+
+            // Verify JSON structure has package fields
+            JsonElement root = json.RootElement;
+            Assert.IsTrue(root.TryGetProperty("PackageName", out _) || root.TryGetProperty("name", out _));
+        }
+
+        /// <summary>
+        /// Test show with --format xml.
+        /// </summary>
+        [Test]
+        public void ShowWithFormatXml()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller --format xml");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid XML
+            XDocument xml = XDocument.Parse(result.StdOut);
+            Assert.IsNotNull(xml);
+            Assert.IsNotNull(xml.Root);
+        }
+
+        /// <summary>
+        /// Test show with --format json case insensitive.
+        /// </summary>
+        [Test]
+        public void ShowWithFormatJsonCaseInsensitive()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller --format JSON");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid JSON
+            JsonDocument json = JsonDocument.Parse(result.StdOut);
+            Assert.IsNotNull(json);
+        }
+
+        /// <summary>
+        /// Test show with --format text.
+        /// </summary>
+        [Test]
+        public void ShowWithFormatText()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller --format text");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's text format (not JSON)
+            Assert.True(result.StdOut.Contains("TestExampleInstaller"));
+            Assert.Throws<JsonException>(() => JsonDocument.Parse(result.StdOut));
+        }
+
+        /// <summary>
+        /// Test show with invalid --format value.
+        /// </summary>
+        [Test]
+        public void ShowWithInvalidFormat()
+        {
+            var result = TestCommon.RunAICLICommand("show", "TestExampleInstaller --format html");
+            Assert.AreNotEqual(Constants.ErrorCode.S_OK, result.ExitCode);
         }
     }
 }

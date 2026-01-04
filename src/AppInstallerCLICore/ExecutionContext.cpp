@@ -6,6 +6,7 @@
 #include "COMContext.h"
 #include "Command.h"
 #include "ExecutionContext.h"
+#include "OutputFormatter.h"
 #include "Public/ShutdownMonitoring.h"
 #include <winget/Checkpoint.h>
 #include <winget/Reboot.h>
@@ -105,6 +106,20 @@ namespace AppInstaller::CLI::Execution
         m_disableSignalTerminationHandlerOnExit = enabled;
     }
 
+    /**
+     * @brief Adjusts context runtime behavior according to command-line arguments.
+     *
+     * Applies argument-driven configuration changes such as logging level, warning suppression,
+     * network proxy, visual style for progress reporting, and structured-output handling.
+     *
+     * - Enables verbose logging when the VerboseLogs argument is present.
+     * - Disables warning reporting when IgnoreWarnings is present.
+     * - Sets or clears the network proxy based on Proxy / NoProxy arguments.
+     * - Disables VT output when NoVT is present or when the requested output format is JSON or XML.
+     * - Selects the visual progress style from RetroStyle, RainbowStyle, NoVT, or the user's configured style.
+     * - When structured output (JSON/XML) is requested, switches the reporter to the JSON channel to prevent
+     *   progress indicators from contaminating structured stdout.
+     */
     void Context::UpdateForArgs()
     {
         // Change logging level to Info if Verbose not requested
@@ -130,7 +145,21 @@ namespace AppInstaller::CLI::Execution
         }
 
         // Set visual style
-        if (Args.Contains(Args::Type::NoVT))
+        // Auto-disable VT output and progress bars for structured formats to keep stdout clean
+        bool disableVT = Args.Contains(Args::Type::NoVT);
+        bool isStructuredOutput = false;
+
+        if (Args.Contains(Args::Type::OutputFormat))
+        {
+            auto format = Execution::GetOutputFormatFromContext(*this);
+            if (format == Execution::OutputFormat::Json || format == Execution::OutputFormat::Xml)
+            {
+                disableVT = true;
+                isStructuredOutput = true;
+            }
+        }
+
+        if (disableVT)
         {
             Reporter.SetStyle(VisualStyle::NoVT);
         }
@@ -146,8 +175,26 @@ namespace AppInstaller::CLI::Execution
         {
             Reporter.SetStyle(User().Get<Setting::ProgressBarVisualStyle>());
         }
+
+        // For structured output (JSON/XML), completely disable progress bars/spinners
+        // by switching to Structured channel mode which disables progress indicators.
+        // Structured output must be emitted via the Structured channel to prevent progress bars from corrupting the output.
+        if (isStructuredOutput)
+        {
+            Reporter.SetChannel(Reporter::Channel::Structured);
+        }
     }
 
+    /**
+     * @brief Record and handle process termination for the current context.
+     *
+     * Handles special termination reasons (CTRL signal and app-termination), logs command termination telemetry,
+     * may convert certain signal HRESULTs to `E_ABORT`, and on repeated CTRL signals forcibly closes output and exits the process.
+     *
+     * @param hr HRESULT indicating the termination reason.
+     * @param file Source file name where termination was triggered (used for telemetry).
+     * @param line Source line number where termination was triggered (used for telemetry).
+     */
     void Context::Terminate(HRESULT hr, std::string_view file, size_t line)
     {
         if (hr == APPINSTALLER_CLI_ERROR_CTRL_SIGNAL_RECEIVED)

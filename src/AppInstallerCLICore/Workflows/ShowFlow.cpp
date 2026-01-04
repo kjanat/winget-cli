@@ -5,6 +5,7 @@
 #include "ShowFlow.h"
 #include <winget/ManifestComparator.h>
 #include "TableOutput.h"
+#include "OutputFormatter.h"
 
 using namespace AppInstaller::Repository;
 using namespace AppInstaller::CLI;
@@ -95,6 +96,15 @@ namespace {
 
 namespace AppInstaller::CLI::Workflow
 {
+    /**
+     * @brief Displays agreement-related metadata from the active manifest to the output reporter.
+     *
+     * Outputs manifest fields such as version, publisher, publisher/support URLs, author,
+     * package and license information, privacy and copyright information, purchase URL,
+     * and the list of agreements to the context's reporter.
+     *
+     * @param context Execution context that provides the manifest data and the reporter to write to.
+     */
     void ShowAgreementsInfo(Execution::Context& context)
     {
         const auto& manifest = context.Get<Execution::Data::Manifest>();
@@ -116,11 +126,218 @@ namespace AppInstaller::CLI::Workflow
         
     }
 
-    void ShowManifestInfo(Execution::Context& context)
+    /**
+     * @brief Emit the manifest and its installer information to the execution reporter in the requested structured format.
+     *
+     * Serializes package-level fields (id, name, version, publisher, optional description, packageUrl, license,
+     * moniker, and tags) and, when an installer is present, installer fields (type, locale, url, sha256,
+     * productId, releaseDate, and offlineDistributionSupported) into either JSON or XML and writes the result
+     * to the context's reporter.
+     *
+     * @param context Execution context that provides the manifest, installer, and reporter used for output.
+     * @param format The structured output format to produce (JSON or XML).
+     */
+    void OutputManifestAsStructured(Execution::Context& context, Execution::OutputFormat format)
     {
-        context << ShowPackageInfo << ShowInstallerInfo;
+        const auto& manifest = context.Get<Execution::Data::Manifest>();
+        const auto& installer = context.Get<Execution::Data::Installer>();
+
+        if (format == Execution::OutputFormat::Json)
+        {
+            Json::Value root(Json::objectValue);
+
+            // Package info
+            root["id"] = static_cast<std::string>(manifest.Id);
+            root["name"] = static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::PackageName>());
+            root["version"] = manifest.Version;
+            root["publisher"] = static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>());
+
+            auto description = manifest.CurrentLocalization.Get<Manifest::Localization::Description>();
+            if (!description.empty())
+            {
+                root["description"] = static_cast<std::string>(description);
+            }
+
+            auto packageUrl = manifest.CurrentLocalization.Get<Manifest::Localization::PackageUrl>();
+            if (!packageUrl.empty())
+            {
+                root["packageUrl"] = static_cast<std::string>(packageUrl);
+            }
+
+            auto license = manifest.CurrentLocalization.Get<Manifest::Localization::License>();
+            if (!license.empty())
+            {
+                root["license"] = static_cast<std::string>(license);
+            }
+
+            auto moniker = manifest.Moniker;
+            if (!moniker.empty())
+            {
+                root["moniker"] = static_cast<std::string>(moniker);
+            }
+
+            const auto& tags = manifest.CurrentLocalization.Get<Manifest::Localization::Tags>();
+            if (!tags.empty())
+            {
+                Json::Value tagsArray(Json::arrayValue);
+                for (const auto& tag : tags)
+                {
+                    tagsArray.append(static_cast<std::string>(tag));
+                }
+                root["tags"] = tagsArray;
+            }
+
+            // Installer info
+            if (installer)
+            {
+                Json::Value installerObj(Json::objectValue);
+                auto typeStr = Manifest::InstallerTypeToString(installer->EffectiveInstallerType());
+                installerObj["type"] = std::string(typeStr.data(), typeStr.size());
+
+                if (!installer->Locale.empty())
+                {
+                    installerObj["locale"] = installer->Locale;
+                }
+
+                if (!installer->Url.empty())
+                {
+                    installerObj["url"] = installer->Url;
+                }
+
+                if (!installer->Sha256.empty())
+                {
+                    installerObj["sha256"] = Utility::SHA256::ConvertToString(installer->Sha256);
+                }
+
+                if (!installer->ProductId.empty())
+                {
+                    installerObj["productId"] = installer->ProductId;
+                }
+
+                if (!installer->ReleaseDate.empty())
+                {
+                    installerObj["releaseDate"] = installer->ReleaseDate;
+                }
+
+                installerObj["offlineDistributionSupported"] = !installer->DownloadCommandProhibited;
+
+                root["installer"] = installerObj;
+            }
+
+            Json::StreamWriterBuilder builder;
+            builder["indentation"] = "  ";
+            context.Reporter.Structured() << Json::writeString(builder, root) << std::endl;
+        }
+        else if (format == Execution::OutputFormat::Xml)
+        {
+            std::ostringstream output;
+            output << "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<package>\n";
+
+            output << "  <id>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(manifest.Id)) << "</id>\n";
+            output << "  <name>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::PackageName>())) << "</name>\n";
+            output << "  <version>" << Execution::XmlOutputFormatter::EscapeXml(manifest.Version) << "</version>\n";
+            output << "  <publisher>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(manifest.CurrentLocalization.Get<Manifest::Localization::Publisher>())) << "</publisher>\n";
+
+            auto description = manifest.CurrentLocalization.Get<Manifest::Localization::Description>();
+            if (!description.empty())
+            {
+                output << "  <description>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(description)) << "</description>\n";
+            }
+
+            auto packageUrl = manifest.CurrentLocalization.Get<Manifest::Localization::PackageUrl>();
+            if (!packageUrl.empty())
+            {
+                output << "  <packageUrl>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(packageUrl)) << "</packageUrl>\n";
+            }
+
+            auto license = manifest.CurrentLocalization.Get<Manifest::Localization::License>();
+            if (!license.empty())
+            {
+                output << "  <license>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(license)) << "</license>\n";
+            }
+
+            auto moniker = manifest.Moniker;
+            if (!moniker.empty())
+            {
+                output << "  <moniker>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(moniker)) << "</moniker>\n";
+            }
+
+            const auto& tags = manifest.CurrentLocalization.Get<Manifest::Localization::Tags>();
+            if (!tags.empty())
+            {
+                output << "  <tags>\n";
+                for (const auto& tag : tags)
+                {
+                    output << "    <tag>" << Execution::XmlOutputFormatter::EscapeXml(static_cast<std::string>(tag)) << "</tag>\n";
+                }
+                output << "  </tags>\n";
+            }
+
+            if (installer)
+            {
+                output << "  <installer>\n";
+                auto typeStr = Manifest::InstallerTypeToString(installer->EffectiveInstallerType());
+                output << "    <type>" << Execution::XmlOutputFormatter::EscapeXml(std::string(typeStr.data(), typeStr.size())) << "</type>\n";
+                if (!installer->Locale.empty())
+                {
+                    output << "    <locale>" << Execution::XmlOutputFormatter::EscapeXml(installer->Locale) << "</locale>\n";
+                }
+                if (!installer->Url.empty())
+                {
+                    output << "    <url>" << Execution::XmlOutputFormatter::EscapeXml(installer->Url) << "</url>\n";
+                }
+                if (!installer->Sha256.empty())
+                {
+                    output << "    <sha256>" << Execution::XmlOutputFormatter::EscapeXml(Utility::SHA256::ConvertToString(installer->Sha256)) << "</sha256>\n";
+                }
+                if (!installer->ProductId.empty())
+                {
+                    output << "    <productId>" << Execution::XmlOutputFormatter::EscapeXml(installer->ProductId) << "</productId>\n";
+                }
+                if (!installer->ReleaseDate.empty())
+                {
+                    output << "    <releaseDate>" << Execution::XmlOutputFormatter::EscapeXml(installer->ReleaseDate) << "</releaseDate>\n";
+                }
+                output << "    <offlineDistributionSupported>" << (installer->DownloadCommandProhibited ? "false" : "true") << "</offlineDistributionSupported>\n";
+                output << "  </installer>\n";
+            }
+
+            output << "</package>\n";
+            context.Reporter.Structured() << output.str();
+        }
     }
 
+    /**
+     * @brief Displays manifest information using the context's selected output format.
+     *
+     * Chooses between structured output (JSON or XML) and plain text output and emits
+     * the manifest and installer information through the provided execution context.
+     *
+     * @param context Execution context used to determine output format and to emit output.
+     */
+    void ShowManifestInfo(Execution::Context& context)
+    {
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
+
+        if (outputFormat == Execution::OutputFormat::Json || outputFormat == Execution::OutputFormat::Xml)
+        {
+            OutputManifestAsStructured(context, outputFormat);
+        }
+        else
+        {
+            context << ShowPackageInfo << ShowInstallerInfo;
+        }
+    }
+
+    /**
+     * @brief Renders package-level metadata from the active manifest to the reporter.
+     *
+     * Outputs human-readable package information such as version, publisher, author, moniker,
+     * description (prefers full description and falls back to short description), package URL,
+     * license and license URL, privacy URL, copyright and copyright URL, release notes and
+     * release notes URL, purchase URL, installation notes, documentation entries (label and URL),
+     * tags, and agreements.
+     */
     void ShowPackageInfo(Execution::Context& context)
     {
         const auto& manifest = context.Get<Execution::Data::Manifest>();
@@ -168,6 +385,17 @@ namespace AppInstaller::CLI::Workflow
         ShowAgreements(info, manifest.CurrentLocalization.Get<Manifest::Localization::Agreements>());
     }
 
+    /**
+     * @brief Displays installer details from the execution context to the reporter.
+     *
+     * Outputs an "Installer" header and, if an installer is present, prints labeled fields for:
+     * installer type (appending the base installer type in parentheses when different), locale,
+     * URL, SHA256 (hex string when available), product ID, release date, and whether offline distribution
+     * is supported. If the installer declares dependencies, they are listed grouped by type (Windows Features,
+     * Windows Libraries, Packages, External); package dependencies include a minimum-version annotation shown as
+     * "[>= <version>]" when provided. If no applicable installer is found, emits a warning with the
+     * NoApplicableInstallers message.
+     */
     void ShowInstallerInfo(Execution::Context& context)
     {
         const auto& installer = context.Get<Execution::Data::Installer>();
@@ -179,11 +407,13 @@ namespace AppInstaller::CLI::Workflow
             Manifest::InstallerTypeEnum effectiveInstallerType = installer->EffectiveInstallerType();
             Manifest::InstallerTypeEnum baseInstallerType = installer->BaseInstallerType;
             std::string shownInstallerType;
-            shownInstallerType = Manifest::InstallerTypeToString(effectiveInstallerType);
+            auto typeStr = Manifest::InstallerTypeToString(effectiveInstallerType);
+            shownInstallerType = std::string(typeStr.data(), typeStr.size());
             if (effectiveInstallerType != baseInstallerType)
             {
                 shownInstallerType += " ("_liv;
-                shownInstallerType += Manifest::InstallerTypeToString(baseInstallerType);
+                auto baseTypeStr = Manifest::InstallerTypeToString(baseInstallerType);
+                shownInstallerType += std::string(baseTypeStr.data(), baseTypeStr.size());
                 shownInstallerType += ')';
             }
             ShowSingleLineField(info, Resource::String::ShowLabelInstallerType, shownInstallerType, true);

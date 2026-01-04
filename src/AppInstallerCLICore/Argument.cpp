@@ -21,6 +21,13 @@ namespace AppInstaller::CLI
         }
     }
 
+    /**
+     * @brief Constructs an ArgumentCommon describing the CLI argument properties for a given argument type.
+     *
+     * @param type The Execution::Args::Type value that identifies which argument to describe.
+     * @return ArgumentCommon Metadata for the specified argument type, including primary/alternate names, short name, category flags, visibility and exclusive-set information.
+     * @throws HRESULT E_UNEXPECTED if the provided argument type is not recognized or handled.
+     */
     ArgumentCommon ArgumentCommon::ForType(Execution::Args::Type type)
     {
         // A test ensures that all types are listed here
@@ -311,6 +318,10 @@ namespace AppInstaller::CLI
         case Execution::Args::Type::ToolVersion:
             return { type, "version"_liv, 'v' };
 
+        // Output format
+        case Execution::Args::Type::OutputFormat:
+            return { type, "format"_liv, ArgTypeCategory::CopyValueToSubContext };
+
         // Authentication arguments
         case Execution::Args::Type::AuthenticationMode:
             return { type, "authentication-mode"_liv, ArgTypeCategory::CopyValueToSubContext };
@@ -334,6 +345,17 @@ namespace AppInstaller::CLI
         return result;
     }
 
+    /**
+     * @brief Creates an Argument instance configured for the specified execution argument type.
+     *
+     * Constructs and returns an Argument populated with the description, argument kind,
+     * visibility, and any special settings appropriate for the provided Execution::Args::Type.
+     *
+     * @param type The execution argument type to construct the Argument for.
+     * @return Argument The configured Argument corresponding to `type`.
+     *
+     * @throws HRESULT E_UNEXPECTED if `type` is not a recognized Execution::Args::Type.
+     */
     Argument Argument::ForType(Execution::Args::Type type)
     {
         switch (type)
@@ -478,6 +500,8 @@ namespace AppInstaller::CLI
             return Argument{ type, Resource::String::FontDetailsArgumentDescription, ArgumentType::Flag, false };
         case Args::Type::Correlation:
             return Argument{ type, Resource::String::CorrelationArgumentDescription, ArgumentType::Standard, Argument::Visibility::Hidden };
+        case Args::Type::OutputFormat:
+            return Argument{ type, Resource::String::FormatArgumentDescription, ArgumentType::Standard };
         default:
             THROW_HR(E_UNEXPECTED);
         }

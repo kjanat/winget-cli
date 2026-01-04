@@ -214,8 +214,29 @@ namespace AppInstaller::CLI::Workflow
         }
     }
 
+    /**
+     * @brief Emits a single empty line to the completion output stream.
+     *
+     * Writes one newline to the Completion reporter in the provided context to indicate an empty completion set.
+     *
+     * @param context Execution context that provides access to the completion reporter stream.
+     */
     void CompleteWithEmptySet(Execution::Context& context)
     {
         context.Reporter.Completion() << std::endl;
+    }
+
+    /**
+     * @brief Writes the available output format options to the completion reporter.
+     *
+     * Outputs the strings "json" and "xml", each on its own line, to the context's completion stream.
+     *
+     * @param context Execution context whose completion reporter will receive the format entries.
+     */
+    void CompleteOutputFormat(Execution::Context& context)
+    {
+        auto stream = context.Reporter.Completion();
+        stream << "json" << std::endl;
+        stream << "xml" << std::endl;
     }
 }

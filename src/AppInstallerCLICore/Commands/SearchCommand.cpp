@@ -12,6 +12,14 @@ namespace AppInstaller::CLI
     using namespace AppInstaller::CLI::Workflow;
     using namespace std::string_view_literals;
 
+    /**
+     * @brief Provides the set of accepted arguments for the search command.
+     *
+     * @return std::vector<Argument> Vector of Argument objects representing the supported
+     * Execution::Args::Type values for the search command: Query, Id, Name, Moniker, Tag,
+     * Command, Source, Count, Exact, CustomHeader, AuthenticationMode, AuthenticationAccount,
+     * AcceptSourceAgreements, ListVersions, and OutputFormat.
+     */
     std::vector<Argument> SearchCommand::GetArguments() const
     {
         return {
@@ -29,6 +37,7 @@ namespace AppInstaller::CLI
             Argument::ForType(Execution::Args::Type::AuthenticationAccount),
             Argument::ForType(Execution::Args::Type::AcceptSourceAgreements),
             Argument::ForType(Execution::Args::Type::ListVersions),
+            Argument::ForType(Execution::Args::Type::OutputFormat),
         };
     }
 
@@ -42,6 +51,16 @@ namespace AppInstaller::CLI
         return { Resource::String::SearchCommandLongDescription };
     }
 
+    /**
+     * @brief Provides completion behavior for the search command based on the argument type.
+     *
+     * Pushes the appropriate completion workflows into the given execution context for the specified
+     * argument value type. Supports query completions, single-value completions for identifier-like
+     * arguments, and completion of output formats.
+     *
+     * @param context Execution context that will receive the completion workflows.
+     * @param valueType The argument value type that determines which completion workflows are applied.
+     */
     void SearchCommand::Complete(Execution::Context& context, Execution::Args::Type valueType) const
     {
         switch (valueType)
@@ -61,6 +80,9 @@ namespace AppInstaller::CLI
         case Execution::Args::Type::Source:
             context <<
                 Workflow::CompleteWithSingleSemanticsForValue(valueType);
+            break;
+        case Execution::Args::Type::OutputFormat:
+            context << Workflow::CompleteOutputFormat;
             break;
         }
     }

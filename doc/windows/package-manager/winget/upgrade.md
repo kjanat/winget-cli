@@ -52,6 +52,7 @@ The options allow you to customize the upgrade experience to meet your needs.
 | **--accept-package-agreements**   | Accept all license agreements for packages.                                                                                 |
 | **--accept-source-agreements**    | Accept all source agreements during source operations.                                                                      |
 | **--header**                      | Optional Windows-Package-Manager REST source HTTP header.                                                                   |
+| **--format**                      | Specifies the output format. Supported formats: json, xml                                                                   |
 | **-r, --recurse, --all**         | Upgrade all installed packages to the latest version if available.                                                           |
 | **--pinned,--include-pinned**    | Upgrade packages even if they have a non-blocking pin.                                                                      |
 | **--uninstall-previous**         | Uninstall the previous version of the package during the upgrade.                                                            |
@@ -93,6 +94,31 @@ In the example below you will see [**list**](list.md) identifies that an update 
 ## **upgrade** --all
 
 **upgrade --all** will identify all the applications with upgrades available. When you run **winget upgrade --all** the Windows Package Manager will look for all applications that have updates available and attempt to install the upgrade.
+
+## Output formats
+
+The **upgrade** command supports structured output formats for programmatic consumption when listing available upgrades.
+
+### JSON output
+
+Use `--format json` to output available upgrades in JSON format:
+
+```powershell
+winget upgrade --format json
+```
+
+The output will be a JSON object containing an array of packages with their name, id, installed version, available version, and source.
+
+### XML output
+
+Use `--format xml` to output available upgrades in XML format:
+
+```powershell
+winget upgrade --format xml
+```
+
+> [!NOTE]
+> Structured output is only available when listing upgrades. When actually performing an upgrade (e.g., `winget upgrade <package>` or `winget upgrade --all`), the output will show installation progress and results in text format.
 
 ## Related topics
 

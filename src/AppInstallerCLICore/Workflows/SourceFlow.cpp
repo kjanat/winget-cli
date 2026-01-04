@@ -6,6 +6,7 @@
 #include "PromptFlow.h"
 #include "TableOutput.h"
 #include "WorkflowBase.h"
+#include "OutputFormatter.h"
 
 namespace AppInstaller::CLI::Workflow
 {
@@ -160,11 +161,64 @@ namespace AppInstaller::CLI::Workflow
         }
     }
 
+    /**
+     * @brief Outputs the repository sources from the execution context in the requested format.
+     *
+     * Depending on the output format in the context, writes:
+     * - JSON or XML structured output with entries for Name, Type, Arg, Data, and Updated (ISO-8601 or empty if never updated);
+     * - If a specific SourceName argument was provided, a detailed two-column listing of that single source's fields (Name, Type, Arg, Data, Identifier, TrustLevel, Explicit, Updated);
+     * - Otherwise, a tabular list of all sources showing Name, Arg, and Explicit, or a message indicating no sources exist.
+     *
+     * @param context The execution context containing Data::SourceList, output format and command arguments; used to retrieve sources and emit output.
+     */
     void ListSources(Execution::Context& context)
     {
         const std::vector<Repository::SourceDetails>& sources = context.Get<Data::SourceList>();
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
 
-        if (context.Args.Contains(Args::Type::SourceName))
+        if (outputFormat == Execution::OutputFormat::Json)
+        {
+            Execution::JsonOutputFormatter formatter;
+            formatter.StartOutput();
+
+            for (const auto& source : sources)
+            {
+                // Use ISO-8601 format for structured output; empty string for "never updated"
+                std::string updated = FormatTimePointAsISO8601(source.LastUpdateTime);
+
+                formatter.AddSourceEntry(
+                    static_cast<std::string>(source.Name),
+                    static_cast<std::string>(source.Type),
+                    static_cast<std::string>(source.Arg),
+                    static_cast<std::string>(source.Data),
+                    updated);
+            }
+
+            formatter.EndOutput();
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
+        }
+        else if (outputFormat == Execution::OutputFormat::Xml)
+        {
+            Execution::XmlOutputFormatter formatter;
+            formatter.StartOutput();
+
+            for (const auto& source : sources)
+            {
+                // Use ISO-8601 format for structured output; empty string for "never updated"
+                std::string updated = FormatTimePointAsISO8601(source.LastUpdateTime);
+
+                formatter.AddSourceEntry(
+                    static_cast<std::string>(source.Name),
+                    static_cast<std::string>(source.Type),
+                    static_cast<std::string>(source.Arg),
+                    static_cast<std::string>(source.Data),
+                    updated);
+            }
+
+            formatter.EndOutput();
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
+        }
+        else if (context.Args.Contains(Args::Type::SourceName))
         {
             // If a source name was specified, list full details of the one and only source.
             const Repository::SourceDetails& source = sources[0];

@@ -267,6 +267,7 @@
     <ClCompile Include="MsixManifest.cpp" />
     <ClCompile Include="MSStoreDownloadFlow.cpp" />
     <ClCompile Include="NameNormalization.cpp" />
+    <ClCompile Include="OutputFormatter.cpp" />
     <ClCompile Include="PackageCollection.cpp" />
     <ClCompile Include="PackageDependenciesValidationUtil.cpp" />
     <ClCompile Include="PackageTrackingCatalog.cpp" />

@@ -5,6 +5,53 @@
 #include "WorkflowBase.h"
 #include <winget/RepositorySearch.h>
 
+/**
+ * Provide completion candidates for a source name argument based on CompletionData.
+ * @param context Execution context containing CompletionData used to produce completions.
+ */
+
+/**
+ * End the completion flow when the current completion word is empty.
+ * @param context Execution context containing CompletionData whose completion word is validated.
+ */
+
+/**
+ * Emit the matched field value for the current SearchResult as a completion candidate.
+ * @param context Execution context containing a SearchResult whose matched field will be output.
+ */
+
+/**
+ * Emit available version strings for the single SearchResult as completion candidates.
+ * @param context Execution context containing CompletionData and a SearchResult to derive versions from.
+ */
+
+/**
+ * Emit available channel identifiers for the single SearchResult as completion candidates.
+ * @param context Execution context containing CompletionData and a SearchResult to derive channels from.
+ */
+
+/**
+ * Execute the completion flow for an argument when a command targets a single manifest (for example, show or install).
+ * The behavior used depends on the argument type provided to the task.
+ * @param context Execution context containing CompletionData used by the task.
+ */
+
+/**
+ * Execute the completion flow for an argument when a command targets a single manifest (for example, show or install),
+ * using an already-open source present in the execution context.
+ * The behavior used depends on the argument type provided to the task.
+ * @param context Execution context containing CompletionData and an open Source used by the task.
+ */
+
+/**
+ * Output an empty line to indicate that no completion candidates are available.
+ * @param context Execution context used to emit the empty completion output.
+ */
+
+/**
+ * Emit completion candidates for the --output-format argument (for example, "json" and "xml").
+ * @param context Execution context used to output the format candidates.
+ */
 namespace AppInstaller::CLI::Workflow
 {
     // Outputs completion possibilities for the source name argument.
@@ -72,4 +119,10 @@ namespace AppInstaller::CLI::Workflow
     // Inputs: None
     // Outputs: None
     void CompleteWithEmptySet(Execution::Context& context);
+
+    // Outputs completion values for the --output-format argument (json, xml).
+    // Required Args: None
+    // Inputs: None
+    // Outputs: None
+    void CompleteOutputFormat(Execution::Context& context);
 }

@@ -50,6 +50,7 @@ Search strings can be filtered with the following options.
 | **--header** | Optional Windows-Package-Manager REST source HTTP header. |
 | **--accept-source-agreements** | Accept all source agreements during source operations. |
 | **--versions** | Show available versions of the package. |
+| **--format** | Specifies the output format. Supported formats: json, xml |
 | **-?, --help** | Gets additional help on this command. |
 | **--wait** | Prompts the user to press any key before exiting. |
 | **--logs, --open-logs** | Open the default logs location. |
@@ -71,6 +72,28 @@ The search commands supports a number of options or filters to help limit the re
 | **-e, --exact** | Uses the exact string in the query, including checking for case-sensitivity. It will not use the default behavior of a substring. |
 | **-n, --count** | Restricts the output of the display to the specified count. |
 | **-s, --source** | Restricts the search to the specified [source](source.md) name. |
+
+## Output formats
+
+The **search** command supports structured output formats for programmatic consumption.
+
+### JSON output
+
+Use `--format json` to output search results in JSON format:
+
+```powershell
+winget search vscode --format json
+```
+
+The output will be a JSON object containing an array of packages with their name, id, version, match criteria, and source.
+
+### XML output
+
+Use `--format xml` to output search results in XML format:
+
+```powershell
+winget search vscode --format xml
+```
 
 ## Related topics
 

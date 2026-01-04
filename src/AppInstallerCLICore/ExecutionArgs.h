@@ -6,7 +6,54 @@
 #include <map>
 #include <vector>
 
-namespace AppInstaller::CLI::Execution
+/**
+         * Checks whether all specified argument types are present in the parsed arguments.
+         * @param arg One or more argument types to check for presence.
+         * @returns `true` if all specified argument types are present, `false` otherwise.
+         */
+        /**
+         * Retrieves the vector of values associated with the specified argument type.
+         * @param arg Argument type to retrieve values for.
+         * @returns Pointer to the vector of values for the argument type, or `nullptr` if the type is not present.
+         */
+        /**
+         * Gets the first value for the specified argument type.
+         * @param arg Argument type to retrieve the first value for.
+         * @returns The first value as `std::string_view`, or an empty `std::string_view` if the type is not present.
+         */
+        /**
+         * Returns the number of values associated with the specified argument type.
+         * @param arg Argument type to count values for.
+         * @returns The number of values for the argument type, or `0` if the type is not present.
+         */
+        /**
+         * Indicates whether a new value can be added for the specified argument type.
+         * @param arg Argument type to check for existing values.
+         * @returns `true` if there are no existing values for the type, `false` otherwise.
+         */
+        /**
+         * Appends a value (by `std::string`) to the vector associated with the specified argument type.
+         * @param arg Argument type to add the value to.
+         * @param value Value to append for the argument type.
+         */
+        /**
+         * Appends a value (by `std::string_view`) to the vector associated with the specified argument type.
+         * @param arg Argument type to add the value to.
+         * @param value Value to append for the argument type.
+         */
+        /**
+         * Indicates whether any arguments have been parsed.
+         * @returns `true` if no arguments are stored, `false` otherwise.
+         */
+        /**
+         * Returns the number of distinct argument types currently stored.
+         * @returns The count of distinct argument types in the parsed arguments map.
+         */
+        /**
+         * Returns a vector of all argument types currently present in the parsed arguments.
+         * @returns A `std::vector<Type>` containing the argument types that have been parsed.
+         */
+        namespace AppInstaller::CLI::Execution
 {
     struct Args
     {
@@ -184,6 +231,9 @@ namespace AppInstaller::CLI::Execution
             NoProxy, // Do not use the default proxy
 
             ToolVersion,
+
+            // Output format
+            OutputFormat,
 
             // Used for demonstration purposes
             ExperimentalArg,

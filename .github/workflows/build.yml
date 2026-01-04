@@ -1,0 +1,127 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'src/**'
+      - 'schemas/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'schemas/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 120
+
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, x86]
+        configuration: [Release, Debug]
+
+    env:
+      SOLUTION: src\AppInstallerCLI.sln
+      BUILD_OUT: src\${{ matrix.platform }}\${{ matrix.configuration }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup NuGet
+        uses: nuget/setup-nuget@v2
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Integrate vcpkg
+        run: |
+          $env:VCPKG_ROOT = $env:VCPKG_INSTALLATION_ROOT
+          vcpkg integrate install
+
+      - name: Restore NuGet packages (Solution)
+        run: nuget restore ${{ env.SOLUTION }}
+
+      - name: Restore NuGet packages (AppInstallerCLIPackage)
+        run: nuget restore src\AppInstallerCLIPackage\AppInstallerCLIPackage.wapproj
+
+      - name: Restore NuGet packages (TestMsixInstaller)
+        run: nuget restore src\AppInstallerTestMsixInstaller\AppInstallerTestMsixInstaller.wapproj
+
+      - name: Restore .NET projects
+        run: dotnet restore ${{ env.SOLUTION }}
+
+      - name: Build Solution
+        run: |
+          msbuild ${{ env.SOLUTION }} `
+            /p:Configuration=${{ matrix.configuration }} `
+            /p:Platform=${{ matrix.platform }} `
+            /p:AppxBundlePlatforms="${{ matrix.platform }}" `
+            /p:AppxBundle=Always `
+            /p:UapAppxPackageBuildMode=SideloadOnly `
+            /m
+
+      - name: Run Unit Tests (AppInstallerCLITests)
+        run: |
+          $testExe = "${{ env.BUILD_OUT }}\AppInstallerCLITests\AppInstallerCLITests.exe"
+          if (Test-Path $testExe) {
+            & $testExe --reporter console
+          } else {
+            Write-Error "Test executable not found: $testExe"
+            exit 1
+          }
+
+      - name: Run Unit Tests (WinGetUtilInterop.UnitTests)
+        run: |
+          $testDir = "src\WinGetUtilInterop.UnitTests\bin\${{ matrix.platform }}\${{ matrix.configuration }}\net8.0"
+          $testDll = "$testDir\WinGetUtilInterop.UnitTests.dll"
+          $wingetUtilDll = "${{ env.BUILD_OUT }}\WinGetUtil\WinGetUtil.dll"
+          
+          if (Test-Path $testDll) {
+            # Copy WinGetUtil.dll to test directory (required native dependency)
+            if (Test-Path $wingetUtilDll) {
+              Copy-Item $wingetUtilDll -Destination $testDir -Force
+              Write-Host "Copied WinGetUtil.dll to $testDir"
+            } else {
+              Write-Warning "WinGetUtil.dll not found at $wingetUtilDll"
+            }
+            dotnet test $testDll --logger "console;verbosity=normal"
+          } else {
+            Write-Warning "Test DLL not found: $testDll - skipping"
+          }
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: build-${{ matrix.platform }}-${{ matrix.configuration }}
+          retention-days: 7
+          path: |
+            ${{ env.BUILD_OUT }}\AppInstallerCLI\
+            ${{ env.BUILD_OUT }}\AppInstallerCLITests\
+            ${{ env.BUILD_OUT }}\WinGetUtil\
+          if-no-files-found: warn
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.platform }}-${{ matrix.configuration }}
+          retention-days: 7
+          path: |
+            ${{ env.BUILD_OUT }}\**\*.log
+            ${{ env.BUILD_OUT }}\**\TestResults\
+          if-no-files-found: ignore

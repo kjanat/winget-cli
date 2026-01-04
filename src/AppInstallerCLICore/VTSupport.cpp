@@ -58,7 +58,16 @@ namespace AppInstaller::CLI::VirtualTerminal
             return false;
         }
 
-        // Extracts a VT sequence, expected one of the form ESCAPE + prefix + result + suffix, returning the result part.
+        /**
+         * @brief Extracts the payload portion of a VT sequence matching ESC + prefix + payload + suffix from an input stream.
+         *
+         * Reads available bytes from inStream and searches for an escape character followed by the given prefix and ending with the given suffix.
+         *
+         * @param inStream Stream to read bytes from; data is consumed from the stream.
+         * @param prefix Sequence of characters that must immediately follow the escape character.
+         * @param suffix Sequence of characters that must terminate the VT sequence.
+         * @return std::string The extracted payload between prefix and suffix, or an empty string if no matching well-formed sequence is found.
+         */
         std::string ExtractSequence(std::istream& inStream, std::string_view prefix, std::string_view suffix)
         {
             // Force discovery of available input
@@ -89,8 +98,37 @@ namespace AppInstaller::CLI::VirtualTerminal
         }
     }
 
-    ConsoleModeRestoreBase::ConsoleModeRestoreBase(DWORD handle) : m_handle(handle) {}
+    /**
+     * @brief Determines whether the process's standard output refers to a console handle.
+     *
+     * @return `true` if the standard output handle is valid and its console mode can be retrieved, `false` otherwise.
+     */
+    bool IsConsoleOutput()
+    {
+        HANDLE hStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        if (hStdOut == INVALID_HANDLE_VALUE || hStdOut == NULL)
+        {
+            return false;
+        }
 
+        DWORD mode = 0;
+        // GetConsoleMode fails with ERROR_INVALID_HANDLE when output is redirected
+        return GetConsoleMode(hStdOut, &mode) != 0;
+    }
+
+    /**
+ * @brief Initializes the restore helper with a console handle to be used for mode restoration.
+ *
+ * @param handle The console handle (STD_INPUT_HANDLE / STD_OUTPUT_HANDLE value) whose mode will be restored by this instance.
+ */
+ConsoleModeRestoreBase::ConsoleModeRestoreBase(DWORD handle) : m_handle(handle) {}
+
+    /**
+     * @brief Restores the saved console mode for the stored handle if a restoration token is set.
+     *
+     * If a restoration token exists, attempts to restore the previously saved console mode on the
+     * stored handle and then clears the token.
+     */
     ConsoleModeRestoreBase::~ConsoleModeRestoreBase()
     {
         if (m_token)

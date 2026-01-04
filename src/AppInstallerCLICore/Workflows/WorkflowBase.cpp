@@ -7,6 +7,7 @@
 #include "PromptFlow.h"
 #include "Sixel.h"
 #include "TableOutput.h"
+#include "OutputFormatter.h"
 #include <winget/FileCache.h>
 #include <winget/ExperimentalFeature.h>
 #include <winget/ManifestYamlParser.h>
@@ -234,6 +235,16 @@ namespace AppInstaller::CLI::Workflow
             return source;
         }
 
+        /**
+         * @brief Adds match filters and an optional maximum-result limit to a SearchRequest based on command-line arguments.
+         *
+         * Reads the argument values from context.Args and, when present, appends PackageMatchFilter entries
+         * for Id, Name, Moniker, ProductCode, Tag, and Command using the provided matchType. If the Count
+         * argument is present, sets searchRequest.MaximumResults to its integer value.
+         *
+         * @param context Execution context whose Args provide filter values.
+         * @param searchRequest SearchRequest to be modified with filters and an optional MaximumResults.
+         */
         void SearchSourceApplyFilters(Execution::Context& context, SearchRequest& searchRequest, MatchType matchType)
         {
             const auto& args = context.Args;
@@ -277,16 +288,43 @@ namespace AppInstaller::CLI::Workflow
         // Data shown on a line of a table displaying installed packages
         struct InstalledPackagesTableLine
         {
-            InstalledPackagesTableLine(Utility::LocIndString name, Utility::LocIndString id, Utility::LocIndString installedVersion, Utility::LocIndString availableVersion, Utility::LocIndString source)
-                : Name(name), Id(id), InstalledVersion(installedVersion), AvailableVersion(availableVersion), Source(source) {}
+            enum class Category
+            {
+                Normal,
+                UpgradeAvailableForPinned,
+                BlockedByPin
+            };
+
+            /**
+                 * @brief Constructs an InstalledPackagesTableLine from the provided values.
+                 *
+                 * @param name Localized display name of the package.
+                 * @param id Package identifier.
+                 * @param installedVersion Installed version string for the package.
+                 * @param availableVersion Available (upstream) version string for the package.
+                 * @param source Name of the source that provided the package.
+                 * @param category Category describing the package line state (defaults to Category::Normal).
+                 */
+                InstalledPackagesTableLine(Utility::LocIndString name, Utility::LocIndString id, Utility::LocIndString installedVersion, Utility::LocIndString availableVersion, Utility::LocIndString source, Category category = Category::Normal)
+                : Name(name), Id(id), InstalledVersion(installedVersion), AvailableVersion(availableVersion), Source(source), PackageCategory(category) {}
 
             Utility::LocIndString Name;
             Utility::LocIndString Id;
             Utility::LocIndString InstalledVersion;
             Utility::LocIndString AvailableVersion;
             Utility::LocIndString Source;
+            Category PackageCategory;
         };
 
+        /**
+         * @brief Prints a 5-column table of installed packages to the execution reporter.
+         *
+         * Renders each entry in the provided lines as a row with the columns: Name, Id,
+         * Installed Version, Available Version, and Source, and finalizes the table output.
+         *
+         * @param context Execution context whose Reporter is used for table output.
+         * @param lines Collection of InstalledPackagesTableLine entries to display as rows.
+         */
         void OutputInstalledPackagesTable(Execution::Context& context, const std::vector<InstalledPackagesTableLine>& lines)
         {
             Execution::TableOutput<5> table(context.Reporter,
@@ -311,8 +349,57 @@ namespace AppInstaller::CLI::Workflow
 
             table.Complete();
         }
+
+        template <typename Formatter>
+        /**
+         * @brief Serializes installed-package table lines into the provided formatter as list entries.
+         *
+         * Each line is added to the formatter as a list entry with the fields: Name, Id, InstalledVersion,
+         * AvailableVersion, Source, and a category string derived from the line's PackageCategory.
+         *
+         * @param formatter The formatter that will receive the list entries.
+         * @param lines Vector of InstalledPackagesTableLine objects to serialize.
+         */
+        void OutputInstalledPackagesToFormatter(Formatter& formatter, const std::vector<InstalledPackagesTableLine>& lines)
+        {
+            for (const auto& line : lines)
+            {
+                std::string category;
+                switch (line.PackageCategory)
+                {
+                    case InstalledPackagesTableLine::Category::UpgradeAvailableForPinned:
+                        category = "pinnedByManifest";
+                        break;
+                    case InstalledPackagesTableLine::Category::BlockedByPin:
+                        category = "blockedByPin";
+                        break;
+                    case InstalledPackagesTableLine::Category::Normal:
+                    default:
+                        category = "normal";
+                        break;
+                }
+
+                formatter.AddListEntry(
+                    static_cast<std::string>(line.Name),
+                    static_cast<std::string>(line.Id),
+                    static_cast<std::string>(line.InstalledVersion),
+                    static_cast<std::string>(line.AvailableVersion),
+                    static_cast<std::string>(line.Source),
+                    category
+                );
+            }
+        }
     }
 
+    /**
+     * @brief Compares two WorkflowTask objects for equality.
+     *
+     * Compares as equal when both tasks represent functions with the same function pointer,
+     * or when both tasks represent named tasks with the same name. Tasks of different kinds
+     * (one function and one named) are considered not equal.
+     *
+     * @return `true` if both tasks represent the same function or the same name, `false` otherwise.
+     */
     bool WorkflowTask::operator==(const WorkflowTask& other) const
     {
         if (m_isFunc && other.m_isFunc)
@@ -575,6 +662,20 @@ namespace AppInstaller::CLI::Workflow
         }
     }
 
+    /**
+     * @brief Opens a well-known predefined repository source and stores it in the execution context.
+     *
+     * Opens the predefined source identified by the object's configuration, reports progress during open,
+     * and on success moves the opened source into the context as either Execution::Data::DependencySource
+     * or Execution::Data::Source depending on whether the instance is configured for dependencies.
+     *
+     * If opening the source fails, emits a user-facing error suggestion via the context reporter and
+     * rethrows the underlying exception.
+     *
+     * @param context Execution context used for progress reporting and for storing the opened source.
+     *
+     * @throws Anything thrown by Repository::Source::Open after reporting a failure message.
+     */
     void OpenPredefinedSource::operator()(Execution::Context& context) const
     {
         Repository::Source source;
@@ -601,7 +702,7 @@ namespace AppInstaller::CLI::Workflow
         {
             context.Add<Execution::Data::DependencySource>(std::move(source));
         }
-        else 
+        else
         {
             context.Add<Execution::Data::Source>(std::move(source));
         }
@@ -773,38 +874,111 @@ namespace AppInstaller::CLI::Workflow
         context.Add<Execution::Data::SearchResult>(context.Get<Execution::Data::Source>().Search(searchRequest));
     }
 
+    /**
+     * @brief Formats and outputs search results from the execution context.
+     *
+     * Formats the search results stored in Execution::Data::SearchResult and writes them
+     * to the context reporter in the current output format (JSON, XML, or text table).
+     * For each matched package the function selects the latest available version and
+     * includes the package name, id, version, match descriptor, and — when the active
+     * source is composite — the source name. If a match has no available latest version
+     * it is skipped. The output is marked as truncated when the search result indicates truncation.
+     *
+     * @param context Execution context containing SearchResult, Source, and Reporter used for output.
+     */
     void ReportSearchResult(Execution::Context& context)
     {
         auto& searchResult = context.Get<Execution::Data::SearchResult>();
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
 
-        bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
-        Execution::TableOutput<5> table(context.Reporter,
+        if (outputFormat == Execution::OutputFormat::Json)
+        {
+            Execution::JsonOutputFormatter formatter;
+            formatter.StartOutput();
+
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
             {
-                Resource::String::SearchName,
-                Resource::String::SearchId,
-                Resource::String::SearchVersion,
-                Resource::String::SearchMatch,
-                Resource::String::SearchSource
-            });
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                if (!latestVersion)
+                {
+                    continue;
+                }
+                formatter.AddPackageEntry(
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Name)),
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Id)),
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Version)),
+                    static_cast<std::string>(GetMatchCriteriaDescriptor(searchResult.Matches[i])),
+                    sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
+                );
+            }
 
-        for (size_t i = 0; i < searchResult.Matches.size(); ++i)
-        {
-            auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
-
-            table.OutputLine({
-                latestVersion->GetProperty(PackageVersionProperty::Name),
-                latestVersion->GetProperty(PackageVersionProperty::Id),
-                latestVersion->GetProperty(PackageVersionProperty::Version),
-                GetMatchCriteriaDescriptor(searchResult.Matches[i]),
-                sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
-                });
+            formatter.SetTruncated(searchResult.Truncated);
+            formatter.EndOutput();
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
-
-        table.Complete();
-
-        if (searchResult.Truncated)
+        else if (outputFormat == Execution::OutputFormat::Xml)
         {
-            context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+            Execution::XmlOutputFormatter formatter;
+            formatter.StartOutput();
+
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
+            {
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                if (!latestVersion)
+                {
+                    continue;
+                }
+                formatter.AddPackageEntry(
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Name)),
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Id)),
+                    static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::Version)),
+                    static_cast<std::string>(GetMatchCriteriaDescriptor(searchResult.Matches[i])),
+                    sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
+                );
+            }
+
+            formatter.SetTruncated(searchResult.Truncated);
+            formatter.EndOutput();
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
+        }
+        else
+        {
+            // Text format (existing implementation)
+            bool sourceIsComposite = context.Get<Execution::Data::Source>().IsComposite();
+            Execution::TableOutput<5> table(context.Reporter,
+                {
+                    Resource::String::SearchName,
+                    Resource::String::SearchId,
+                    Resource::String::SearchVersion,
+                    Resource::String::SearchMatch,
+                    Resource::String::SearchSource
+                });
+
+            for (size_t i = 0; i < searchResult.Matches.size(); ++i)
+            {
+                auto latestVersion = GetAllAvailableVersions(searchResult.Matches[i].Package)->GetLatestVersion();
+                if (!latestVersion)
+                {
+                    continue;
+                }
+
+                table.OutputLine({
+                    latestVersion->GetProperty(PackageVersionProperty::Name),
+                    latestVersion->GetProperty(PackageVersionProperty::Id),
+                    latestVersion->GetProperty(PackageVersionProperty::Version),
+                    GetMatchCriteriaDescriptor(searchResult.Matches[i]),
+                    sourceIsComposite ? static_cast<std::string>(latestVersion->GetProperty(PackageVersionProperty::SourceName)) : ""s
+                    });
+            }
+
+            table.Complete();
+
+            if (searchResult.Truncated)
+            {
+                context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+            }
         }
     }
 
@@ -925,9 +1099,20 @@ namespace AppInstaller::CLI::Workflow
         }
     }
 
+    /**
+     * @brief Aggregates installed-package matches and emits a formatted list of installed packages and available upgrades.
+     *
+     * Collects installed versions from the search results, classifies each entry by upgrade availability and pin state,
+     * and outputs the results in the context's chosen format (JSON, XML, or text tables). The output respects
+     * listing options and pin-related arguments (e.g., --force, --include-pinned, --include-unknown) and reports
+     * truncated results and upgrade counts where applicable.
+     *
+     * @param context Execution context that supplies SearchResult, Source, arguments, and the Reporter used for output.
+     */
     void ReportListResult::operator()(Execution::Context& context) const
     {
         auto& searchResult = context.Get<Execution::Data::SearchResult>();
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
 
         std::vector<InstalledPackagesTableLine> lines;
         std::vector<InstalledPackagesTableLine> linesForExplicitUpgrade;
@@ -1036,15 +1221,29 @@ namespace AppInstaller::CLI::Workflow
                     // Output using the local PackageName instead of the name in the manifest, to prevent confusion for packages that add multiple
                     // Add/Remove Programs entries.
                     // TODO: De-duplicate this list, and only show (by default) one entry per matched package.
+                    
+                    // Determine the category based on pin state
+                    auto pinnedState = ConvertToPinTypeEnum(installedVersion->GetMetadata()[PackageVersionMetadata::PinnedState]);
+                    InstalledPackagesTableLine::Category category = InstalledPackagesTableLine::Category::Normal;
+                    
+                    if (updateIsPinned)
+                    {
+                        category = InstalledPackagesTableLine::Category::BlockedByPin;
+                    }
+                    else if (m_onlyShowUpgrades && pinnedState == PinType::PinnedByManifest)
+                    {
+                        category = InstalledPackagesTableLine::Category::UpgradeAvailableForPinned;
+                    }
+                    
                     InstalledPackagesTableLine line(
                          installedVersion->GetProperty(PackageVersionProperty::Name),
                          match.Package->GetProperty(PackageProperty::Id),
                          installedVersion->GetProperty(PackageVersionProperty::Version),
                          availableVersion,
-                         shouldShowSource ? sourceName : Utility::LocIndString()
+                         shouldShowSource ? sourceName : Utility::LocIndString(),
+                         category
                     );
 
-                    auto pinnedState = ConvertToPinTypeEnum(installedVersion->GetMetadata()[PackageVersionMetadata::PinnedState]);
                     if (updateIsPinned)
                     {
                         linesForPins.push_back(std::move(line));
@@ -1061,53 +1260,94 @@ namespace AppInstaller::CLI::Workflow
             }
         }
 
-        OutputInstalledPackagesTable(context, lines);
-
-        if (lines.empty())
+        if (outputFormat == Execution::OutputFormat::Json)
         {
-            context.Reporter.Info() << Resource::String::NoInstalledPackageFound << std::endl;
+            Execution::JsonOutputFormatter formatter;
+            formatter.StartOutput();
+
+            // Add all packages
+            OutputInstalledPackagesToFormatter(formatter, lines);
+            OutputInstalledPackagesToFormatter(formatter, linesForExplicitUpgrade);
+            OutputInstalledPackagesToFormatter(formatter, linesForPins);
+
+            formatter.SetTruncated(searchResult.Truncated);
+            formatter.EndOutput();
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
+        }
+        else if (outputFormat == Execution::OutputFormat::Xml)
+        {
+            Execution::XmlOutputFormatter formatter;
+            formatter.StartOutput();
+
+            // Add all packages
+            OutputInstalledPackagesToFormatter(formatter, lines);
+            OutputInstalledPackagesToFormatter(formatter, linesForExplicitUpgrade);
+            OutputInstalledPackagesToFormatter(formatter, linesForPins);
+
+            formatter.SetTruncated(searchResult.Truncated);
+            formatter.EndOutput();
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
         else
         {
-            if (searchResult.Truncated)
+            // Text format (existing implementation)
+            OutputInstalledPackagesTable(context, lines);
+
+            if (lines.empty())
             {
-                context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+                context.Reporter.Info() << Resource::String::NoInstalledPackageFound << std::endl;
+            }
+            else
+            {
+                if (searchResult.Truncated)
+                {
+                    context.Reporter.Info() << '<' << Resource::String::SearchTruncated << '>' << std::endl;
+                }
+
+                if (m_onlyShowUpgrades)
+                {
+                    context.Reporter.Info() << Resource::String::AvailableUpgrades(availableUpgradesCount) << std::endl;
+                }
+            }
+
+            if (!linesForExplicitUpgrade.empty())
+            {
+                context.Reporter.Info() << std::endl << Resource::String::UpgradeAvailableForPinned << std::endl;
+                OutputInstalledPackagesTable(context, linesForExplicitUpgrade);
+            }
+
+            if (!linesForPins.empty())
+            {
+                context.Reporter.Info() << std::endl << Resource::String::UpgradeBlockedByPinCount(linesForPins.size()) << std::endl;
+                OutputInstalledPackagesTable(context, linesForPins);
             }
 
             if (m_onlyShowUpgrades)
             {
-                context.Reporter.Info() << Resource::String::AvailableUpgrades(availableUpgradesCount) << std::endl;
-            }
-        }
+                if (packagesWithUnknownVersionSkipped > 0)
+                {
+                    AICLI_LOG(CLI, Info, << packagesWithUnknownVersionSkipped << " package(s) skipped due to unknown installed version");
+                    context.Reporter.Info() << Resource::String::UpgradeUnknownVersionCount(packagesWithUnknownVersionSkipped) << std::endl;
+                }
 
-        if (!linesForExplicitUpgrade.empty())
-        {
-            context.Reporter.Info() << std::endl << Resource::String::UpgradeAvailableForPinned << std::endl;
-            OutputInstalledPackagesTable(context, linesForExplicitUpgrade);
-        }
-
-        if (!linesForPins.empty())
-        {
-            context.Reporter.Info() << std::endl << Resource::String::UpgradeBlockedByPinCount(linesForPins.size()) << std::endl;
-            OutputInstalledPackagesTable(context, linesForPins);
-        }
-
-        if (m_onlyShowUpgrades)
-        {
-            if (packagesWithUnknownVersionSkipped > 0)
-            {
-                AICLI_LOG(CLI, Info, << packagesWithUnknownVersionSkipped << " package(s) skipped due to unknown installed version");
-                context.Reporter.Info() << Resource::String::UpgradeUnknownVersionCount(packagesWithUnknownVersionSkipped) << std::endl;
-            }
-
-            if (packagesWithUserPinsSkipped > 0)
-            {
-                AICLI_LOG(CLI, Info, << packagesWithUserPinsSkipped << " package(s) skipped due to user pins");
-                context.Reporter.Info() << Resource::String::UpgradePinnedByUserCount(packagesWithUserPinsSkipped) << std::endl;
+                if (packagesWithUserPinsSkipped > 0)
+                {
+                    AICLI_LOG(CLI, Info, << packagesWithUserPinsSkipped << " package(s) skipped due to user pins");
+                    context.Reporter.Info() << Resource::String::UpgradePinnedByUserCount(packagesWithUserPinsSkipped) << std::endl;
+                }
             }
         }
     }
 
+    /**
+     * @brief Ensures the search produced at least one match and reports when none are found.
+     *
+     * Checks the search results stored in the provided execution context. If no matches exist,
+     * logs telemetry, prints an operation-appropriate user-facing message, and terminates the
+     * context with APPINSTALLER_CLI_ERROR_NO_APPLICATIONS_FOUND.
+     *
+     * @param context The current execution context containing search results and reporter interfaces.
+     */
     void EnsureMatchesFromSearchResult::operator()(Execution::Context& context) const
     {
         auto& searchResult = context.Get<Execution::Data::SearchResult>();
@@ -1117,7 +1357,7 @@ namespace AppInstaller::CLI::Workflow
         if (searchResult.Matches.size() == 0)
         {
             Logging::Telemetry().LogNoAppMatch();
-            
+
             switch (m_operationType)
             {
                 // These search purposes require a package to be found in the Installed Packages
@@ -1480,6 +1720,17 @@ namespace AppInstaller::CLI::Workflow
         }
     }
 
+    /**
+     * @brief Searches the current source for packages that correspond to the manifest and records the result in the context.
+     *
+     * Performs a two-stage search: first attempts installer-specific identity matches (PackageFamilyName, ProductCode,
+     * or installer-type-specific fallbacks for portable and font installers) and stops on the first non-empty match set.
+     * If no installer-specific matches are found, performs a fallback search by manifest Id combined with localized package
+     * name filters to disambiguate identical Ids from different sources.
+     *
+     * @param context Execution context containing the manifest and the source; on success the function adds
+     *                Execution::Data::SearchResult to the context (may be empty if nothing is found).
+     */
     void SearchSourceUsingManifest(Execution::Context& context)
     {
         const auto& manifest = context.Get<Execution::Data::Manifest>();
@@ -1523,7 +1774,7 @@ namespace AppInstaller::CLI::Workflow
         // If we cannot find a package using PackageFamilyName or ProductId, try manifest Id and Name pair
         SearchRequest searchRequest;
         searchRequest.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::Id, MatchType::CaseInsensitive, manifest.Id));
-        
+
         // In case there are same Ids from different sources, filter the result using package name
         for (const auto& localization : manifest.Localizations)
         {
@@ -1577,16 +1828,53 @@ namespace AppInstaller::CLI::Workflow
         context.SetExecutionStage(m_stage);
     }
 
+    /**
+     * @brief Outputs all available versions for the package stored in the execution context.
+     *
+     * Writes the package version list to the context's reporter using the current output format:
+     * - Json: emits a JSON list where each entry contains the version and channel (version -> `version`, channel -> `availableVersion`).
+     * - Xml: emits an analogous XML list with version and channel fields.
+     * - Text (table): prints a two-column table with headers "Version" and "Channel".
+     *
+     * @param context Execution context containing the Package whose available versions are reported and the reporter used for output.
+     */
     void ShowAppVersions(Execution::Context& context)
     {
         auto versions = GetAllAvailableVersions(context.Get<Execution::Data::Package>())->GetVersionKeys();
+        auto outputFormat = Execution::GetOutputFormatFromContext(context);
 
-        Execution::TableOutput<2> table(context.Reporter, { Resource::String::ShowVersion, Resource::String::ShowChannel });
-        for (const auto& version : versions)
+        if (outputFormat == Execution::OutputFormat::Json)
         {
-            table.OutputLine({ version.Version, version.Channel });
+            Execution::JsonOutputFormatter formatter;
+            formatter.StartOutput();
+            for (const auto& version : versions)
+            {
+                // Store version in "version" and channel in "availableVersion" (temporary until a dedicated schema exists)
+                formatter.AddListEntry("", "", static_cast<std::string>(version.Version), static_cast<std::string>(version.Channel), "");
+            }
+            formatter.EndOutput();
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
-        table.Complete();
+        else if (outputFormat == Execution::OutputFormat::Xml)
+        {
+            Execution::XmlOutputFormatter formatter;
+            formatter.StartOutput();
+            for (const auto& version : versions)
+            {
+                formatter.AddListEntry("", "", static_cast<std::string>(version.Version), static_cast<std::string>(version.Channel), "");
+            }
+            formatter.EndOutput();
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
+        }
+        else
+        {
+            Execution::TableOutput<2> table(context.Reporter, { Resource::String::ShowVersion, Resource::String::ShowChannel });
+            for (const auto& version : versions)
+            {
+                table.OutputLine({ version.Version, version.Channel });
+            }
+            table.Complete();
+        }
     }
 }
 
