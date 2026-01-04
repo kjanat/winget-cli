@@ -6,6 +6,8 @@
 
 namespace AppInstallerCLIE2ETests
 {
+    using System.Text.Json;
+    using System.Xml.Linq;
     using AppInstallerCLIE2ETests.Helpers;
     using NUnit.Framework;
 
@@ -210,6 +212,136 @@ namespace AppInstallerCLIE2ETests
             finally
             {
                 this.ResetTestSource();
+            }
+        }
+
+        /// <summary>
+        /// Test search with --format json.
+        /// </summary>
+        [Test]
+        public void SearchWithFormatJson()
+        {
+            var result = TestCommon.RunAICLICommand("search", "TestExampleInstaller --format json");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid JSON
+            JsonDocument json = JsonDocument.Parse(result.StdOut);
+            Assert.IsNotNull(json);
+
+            // Verify JSON structure
+            JsonElement root = json.RootElement;
+            Assert.IsTrue(root.TryGetProperty("Packages", out JsonElement packages));
+            Assert.AreEqual(JsonValueKind.Array, packages.ValueKind);
+            Assert.Greater(packages.GetArrayLength(), 0);
+
+            // Verify first package has expected fields
+            JsonElement firstPackage = packages[0];
+            Assert.IsTrue(firstPackage.TryGetProperty("PackageName", out _));
+            Assert.IsTrue(firstPackage.TryGetProperty("PackageId", out _));
+            Assert.IsTrue(firstPackage.TryGetProperty("Version", out _));
+        }
+
+        /// <summary>
+        /// Test search with --format xml.
+        /// </summary>
+        [Test]
+        public void SearchWithFormatXml()
+        {
+            var result = TestCommon.RunAICLICommand("search", "TestExampleInstaller --format xml");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid XML
+            XDocument xml = XDocument.Parse(result.StdOut);
+            Assert.IsNotNull(xml);
+
+            // Verify XML structure
+            Assert.IsNotNull(xml.Root);
+            Assert.AreEqual("Packages", xml.Root.Name.LocalName);
+            Assert.Greater(xml.Root.Elements("Package").Count(), 0);
+
+            // Verify first package has expected elements
+            var firstPackage = xml.Root.Element("Package");
+            Assert.IsNotNull(firstPackage);
+            Assert.IsNotNull(firstPackage.Element("Name"));
+            Assert.IsNotNull(firstPackage.Element("Id"));
+            Assert.IsNotNull(firstPackage.Element("Version"));
+        }
+
+        /// <summary>
+        /// Test search with --format json case insensitive.
+        /// </summary>
+        [Test]
+        public void SearchWithFormatJsonCaseInsensitive()
+        {
+            var result = TestCommon.RunAICLICommand("search", "TestExampleInstaller --format JSON");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's valid JSON
+            JsonDocument json = JsonDocument.Parse(result.StdOut);
+            Assert.IsNotNull(json);
+        }
+
+        /// <summary>
+        /// Test search with --format text.
+        /// </summary>
+        [Test]
+        public void SearchWithFormatText()
+        {
+            var result = TestCommon.RunAICLICommand("search", "TestExampleInstaller --format text");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Verify it's text format (not JSON/XML)
+            Assert.True(result.StdOut.Contains("Name"));
+            Assert.True(result.StdOut.Contains("Id"));
+            Assert.Throws<JsonException>(() => JsonDocument.Parse(result.StdOut));
+        }
+
+        /// <summary>
+        /// Test search with --format default (no format specified).
+        /// </summary>
+        [Test]
+        public void SearchWithFormatDefault()
+        {
+            var result = TestCommon.RunAICLICommand("search", "TestExampleInstaller");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            // Default should be text format (not JSON)
+            Assert.True(result.StdOut.Contains("Name"));
+            Assert.Throws<JsonException>(() => JsonDocument.Parse(result.StdOut));
+        }
+
+        /// <summary>
+        /// Test search with invalid --format value.
+        /// </summary>
+        [Test]
+        public void SearchWithInvalidFormat()
+        {
+            var result = TestCommon.RunAICLICommand("search", "TestExampleInstaller --format yaml");
+            Assert.AreNotEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+        }
+
+        /// <summary>
+        /// Test search with --format json validates all packages.
+        /// </summary>
+        [Test]
+        public void SearchWithFormatJsonValidatesContent()
+        {
+            var result = TestCommon.RunAICLICommand("search", "AppInstallerTest --format json");
+            Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
+
+            JsonDocument json = JsonDocument.Parse(result.StdOut);
+            JsonElement root = json.RootElement;
+            Assert.IsTrue(root.TryGetProperty("Packages", out JsonElement packages));
+
+            // Should have multiple packages
+            Assert.Greater(packages.GetArrayLength(), 1);
+
+            // Verify all packages have required fields
+            foreach (JsonElement package in packages.EnumerateArray())
+            {
+                Assert.IsTrue(package.TryGetProperty("PackageName", out _));
+                Assert.IsTrue(package.TryGetProperty("PackageId", out _));
+                Assert.IsTrue(package.TryGetProperty("Version", out _));
             }
         }
     }
