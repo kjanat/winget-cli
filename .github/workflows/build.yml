@@ -2,15 +2,12 @@ name: Build and Test
 
 on:
   push:
-    branches:
-      - master
-      - feature/**
+    branches: [master]
     paths:
       - 'src/**'
       - 'schemas/**'
       - '.github/workflows/build.yml'
   pull_request:
-    branches: [master]
     paths:
       - 'src/**'
       - 'schemas/**'
