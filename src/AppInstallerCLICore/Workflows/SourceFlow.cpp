@@ -195,7 +195,7 @@ namespace AppInstaller::CLI::Workflow
             }
 
             formatter.EndOutput();
-            context.Reporter.Json() << formatter.GetOutput() << std::endl;
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
         else if (outputFormat == Execution::OutputFormat::Xml)
         {
@@ -216,7 +216,7 @@ namespace AppInstaller::CLI::Workflow
             }
 
             formatter.EndOutput();
-            context.Reporter.Json() << formatter.GetOutput() << std::endl;
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
         else if (context.Args.Contains(Args::Type::SourceName))
         {

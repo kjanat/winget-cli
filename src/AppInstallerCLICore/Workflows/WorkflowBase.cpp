@@ -915,7 +915,7 @@ namespace AppInstaller::CLI::Workflow
 
             formatter.SetTruncated(searchResult.Truncated);
             formatter.EndOutput();
-            context.Reporter.Json() << formatter.GetOutput() << std::endl;
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
         else if (outputFormat == Execution::OutputFormat::Xml)
         {
@@ -941,7 +941,7 @@ namespace AppInstaller::CLI::Workflow
 
             formatter.SetTruncated(searchResult.Truncated);
             formatter.EndOutput();
-            context.Reporter.Json() << formatter.GetOutput() << std::endl;
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
         else
         {
@@ -1272,7 +1272,7 @@ namespace AppInstaller::CLI::Workflow
 
             formatter.SetTruncated(searchResult.Truncated);
             formatter.EndOutput();
-            context.Reporter.Json() << formatter.GetOutput() << std::endl;
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
         else if (outputFormat == Execution::OutputFormat::Xml)
         {
@@ -1286,7 +1286,7 @@ namespace AppInstaller::CLI::Workflow
 
             formatter.SetTruncated(searchResult.Truncated);
             formatter.EndOutput();
-            context.Reporter.Json() << formatter.GetOutput() << std::endl;
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
         else
         {
@@ -1853,7 +1853,7 @@ namespace AppInstaller::CLI::Workflow
                 formatter.AddListEntry("", "", static_cast<std::string>(version.Version), static_cast<std::string>(version.Channel), "");
             }
             formatter.EndOutput();
-            context.Reporter.Json() << formatter.GetOutput() << std::endl;
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
         else if (outputFormat == Execution::OutputFormat::Xml)
         {
@@ -1864,7 +1864,7 @@ namespace AppInstaller::CLI::Workflow
                 formatter.AddListEntry("", "", static_cast<std::string>(version.Version), static_cast<std::string>(version.Channel), "");
             }
             formatter.EndOutput();
-            context.Reporter.Json() << formatter.GetOutput() << std::endl;
+            context.Reporter.Structured() << formatter.GetOutput() << std::endl;
         }
         else
         {

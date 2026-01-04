@@ -226,7 +226,7 @@ namespace AppInstaller::CLI::Workflow
 
             Json::StreamWriterBuilder builder;
             builder["indentation"] = "  ";
-            context.Reporter.Json() << Json::writeString(builder, root) << std::endl;
+            context.Reporter.Structured() << Json::writeString(builder, root) << std::endl;
         }
         else if (format == Execution::OutputFormat::Xml)
         {
@@ -303,7 +303,7 @@ namespace AppInstaller::CLI::Workflow
             }
 
             output << "</package>\n";
-            context.Reporter.Json() << output.str();
+            context.Reporter.Structured() << output.str();
         }
     }
 

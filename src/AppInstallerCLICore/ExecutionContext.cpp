@@ -177,11 +177,11 @@ namespace AppInstaller::CLI::Execution
         }
 
         // For structured output (JSON/XML), completely disable progress bars/spinners
-        // by switching to Json channel mode which disables progress indicators.
-        // Structured output must be emitted via the Json channel to prevent progress bars from corrupting the output.
+        // by switching to Structured channel mode which disables progress indicators.
+        // Structured output must be emitted via the Structured channel to prevent progress bars from corrupting the output.
         if (isStructuredOutput)
         {
-            Reporter.SetChannel(Reporter::Channel::Json);
+            Reporter.SetChannel(Reporter::Channel::Structured);
         }
     }
 

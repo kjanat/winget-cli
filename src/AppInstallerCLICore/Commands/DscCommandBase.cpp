@@ -199,7 +199,7 @@ namespace AppInstaller::CLI
 
     void DscCommandBase::ExecuteInternal(Execution::Context& context) const
     {
-        context.Reporter.SetChannel(Execution::Reporter::Channel::Json);
+        context.Reporter.SetChannel(Execution::Reporter::Channel::Structured);
         Logging::StdErrLogger::Add();
 
 #define WINGET_DSC_FUNCTION_ARGUMENT(_function_) \
@@ -258,7 +258,7 @@ namespace AppInstaller::CLI
         }
         else
         {
-            context.Reporter.Json() << jsonString;
+            context.Reporter.Structured() << jsonString;
         }
     }
 
@@ -309,6 +309,6 @@ namespace AppInstaller::CLI
         writerBuilder.settings_["indentation"] = "";
         writerBuilder.settings_["commentStyle"] = "None";
         writerBuilder.settings_["emitUTF8"] = true;
-        context.Reporter.Json() << Json::writeString(writerBuilder, value) << std::endl;
+        context.Reporter.Structured() << Json::writeString(writerBuilder, value) << std::endl;
     }
 }
